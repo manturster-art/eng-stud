@@ -28,6 +28,7 @@ export default function StudyLogPage() {
   const [conversation, setConversation] = useState<number>(0);
   const [toeic, setToeic] = useState<number>(0);
   const [peppa, setPeppa] = useState<number>(0);
+  const [phrases, setPhrases] = useState<number>(0);
   const [rating, setRating] = useState<number>(3);
   const [notes, setNotes] = useState<string>("");
   const [watchedIds, setWatchedIds] = useState<number[]>([]);
@@ -49,6 +50,7 @@ export default function StudyLogPage() {
       setConversation(l.conversationMin);
       setToeic(l.toeicSentences);
       setPeppa(l.peppaEpisodes);
+      setPhrases(l.phrasesReviewed ?? 0);
       setRating(l.selfRating || 3);
       setNotes(l.notes || "");
       try {
@@ -63,6 +65,7 @@ export default function StudyLogPage() {
       setConversation(0);
       setToeic(0);
       setPeppa(0);
+      setPhrases(0);
       setRating(3);
       setNotes("");
       setWatchedIds([]);
@@ -94,6 +97,7 @@ export default function StudyLogPage() {
         conversationMin: conversation,
         toeicSentences: toeic,
         peppaEpisodes: peppa,
+        phrasesReviewed: phrases,
         selfRating: rating,
         notes,
         watchedEpisodeIds: JSON.stringify(watchedIds),
@@ -171,9 +175,10 @@ export default function StudyLogPage() {
             <NumField label="쉐도잉 (분)" value={shadowing} onChange={setShadowing} testId="input-shadowing" />
             <NumField label="회화 (분)" value={conversation} onChange={setConversation} testId="input-conversation" />
           </div>
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
             <NumField label="토익 문장 연습 (개)" value={toeic} onChange={setToeic} testId="input-toeic-count" />
             <NumField label="페파피그 에피소드 (편)" value={peppa} onChange={setPeppa} testId="input-peppa-count" />
+            <NumField label="복습한 표현 (개)" value={phrases} onChange={setPhrases} testId="input-phrases-count" />
           </div>
 
           {/* 페파피그 에피소드 체크 선택 */}

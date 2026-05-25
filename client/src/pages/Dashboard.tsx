@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { StudyLog, Settings, ToeicSentence, PeppaEpisode } from "@shared/schema";
+import type { StudyLog, Settings, ToeicSentence, PeppaEpisode, Phrase } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -29,7 +29,7 @@ import {
   getDueQuizSentences,
   lastWeekSummary,
 } from "@/lib/utils-study";
-import { Clock, Flame, Target, TrendingUp, Headphones, Mic, MessageCircle, Tv2, Languages, CalendarRange, Brain, Award, ArrowRight } from "lucide-react";
+import { Clock, Flame, Target, TrendingUp, Headphones, Mic, MessageCircle, Tv2, Languages, CalendarRange, Brain, Award, ArrowRight, MessageSquareQuote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -87,6 +87,7 @@ export default function Dashboard() {
   const { data: settings = null, isLoading: l2 } = useQuery<Settings | null>({ queryKey: ["/api/settings"] });
   const { data: toeic = [] } = useQuery<ToeicSentence[]>({ queryKey: ["/api/toeic"] });
   const { data: peppa = [] } = useQuery<PeppaEpisode[]>({ queryKey: ["/api/peppa"] });
+  const { data: phrases = [] } = useQuery<Phrase[]>({ queryKey: ["/api/phrases"] });
 
   const loading = l1 || l2;
   const today = todayISO();
@@ -107,7 +108,9 @@ export default function Dashboard() {
   const practicedToeic = toeic.filter((t) => t.practiceCount > 0).length;
   const shadowedPeppa = peppa.filter((p) => p.status === "shadowing" || p.status === "mastered").length;
   const watchedPeppa = peppa.filter((p) => p.watchedCount > 0).length;
-  const prediction = predictGoal(logs, toeic, peppa, settings);
+  const masteredPhrases = phrases.filter((p) => p.masteryLevel >= 3).length;
+  const reviewedPhrases = phrases.filter((p) => p.reviewCount > 0).length;
+  const prediction = predictGoal(logs, toeic, peppa, settings, phrases);
   const cefr = scoreToCEFR(prediction.predictedScore);
 
   const todayTarget = settings ? dailyTargetMin(settings) : 90;
@@ -158,7 +161,7 @@ export default function Dashboard() {
       ) : (
         <>
           {/* KPI row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <StatCard
               testId="stat-today"
               label="오늘 학습"
@@ -191,6 +194,13 @@ export default function Dashboard() {
               hint={`시청 ${watchedPeppa}편`}
               icon={Tv2}
               tone="purple"
+            />
+            <StatCard
+              testId="stat-phrases"
+              label="표현 마스터"
+              value={`${masteredPhrases} / 50`}
+              hint={`복습 ${reviewedPhrases}개`}
+              icon={MessageSquareQuote}
             />
           </div>
 

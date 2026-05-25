@@ -7,15 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bookmark, Plus, Star, Check, Search, Volume2 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Bookmark, Plus, Star, Check, Search, Volume2, Pin } from "lucide-react";
 import { todayISO, speakEnglish } from "@/lib/utils-study";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ToeicPage() {
+  const { toast } = useToast();
   const { data: list = [] } = useQuery<ToeicSentence[]>({ queryKey: ["/api/toeic"] });
   const [category, setCategory] = useState<string>("all");
   const [filter, setFilter] = useState<string>("all"); // all | bookmarked | not_mastered
   const [query, setQuery] = useState<string>("");
+  const [pickFor, setPickFor] = useState<ToeicSentence | null>(null);
+  const [pickEn, setPickEn] = useState("");
+  const [pickKo, setPickKo] = useState("");
 
   const categories = useMemo(() => Array.from(new Set(list.map((s) => s.category))), [list]);
 
@@ -66,6 +75,54 @@ export default function ToeicPage() {
   };
   const onBookmark = (s: ToeicSentence) => {
     updateMut.mutate({ id: s.id, partial: { bookmarked: !s.bookmarked } });
+  };
+
+  const savePhraseMut = useMutation({
+    mutationFn: async (body: { phraseEn: string; phraseKo: string; sourceRefId: number; sourceLabel: string; category: string }) => {
+      const res = await apiRequest("POST", "/api/phrases", {
+        phraseEn: body.phraseEn,
+        phraseKo: body.phraseKo,
+        source: "toeic",
+        sourceRefId: body.sourceRefId,
+        sourceLabel: body.sourceLabel,
+        category: body.category,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/phrases"] });
+      toast({ title: "표현이 추가되었습니다", description: "표현 학습 페이지에서 PlayPhrase로 확인하실 수 있습니다." });
+      setPickFor(null);
+      setPickEn("");
+      setPickKo("");
+    },
+    onError: (e: any) => {
+      toast({ title: "추가 실패", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const openPicker = (s: ToeicSentence) => {
+    // 영문 앞 4-6단어를 기본 추천으로 채워둠
+    const words = s.english.replace(/[?.!,]/g, "").split(/\s+/).slice(0, 5).join(" ");
+    setPickEn(words);
+    setPickKo(s.korean.length > 30 ? s.korean.slice(0, 30) : s.korean);
+    setPickFor(s);
+  };
+
+  const savePhrase = () => {
+    if (!pickFor) return;
+    const phrase = pickEn.trim();
+    if (!phrase) {
+      toast({ title: "영어 표현을 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    savePhraseMut.mutate({
+      phraseEn: phrase,
+      phraseKo: pickKo.trim(),
+      sourceRefId: pickFor.id,
+      sourceLabel: `TOEIC #${pickFor.sentenceNo}`,
+      category: pickFor.category || "daily",
+    });
   };
 
   return (
@@ -207,6 +264,16 @@ export default function ToeicPage() {
                     size="sm"
                     variant="outline"
                     className="h-7 px-2 text-xs gap-1"
+                    onClick={() => openPicker(s)}
+                    data-testid={`button-pick-phrase-${s.id}`}
+                    title="짧은 표현으로 발췌해서 표현 학습에 추가"
+                  >
+                    <Pin className="size-3" /> 표현 발췌
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs gap-1"
                     onClick={() => onPractice(s)}
                     data-testid={`button-practice-${s.id}`}
                   >
@@ -218,6 +285,50 @@ export default function ToeicPage() {
           ))
         )}
       </div>
+
+      <Dialog open={!!pickFor} onOpenChange={(o) => !o && setPickFor(null)}>
+        <DialogContent className="max-w-md" data-testid="dialog-pick-phrase">
+          <DialogHeader>
+            <DialogTitle className="text-base">짧은 표현으로 발췌</DialogTitle>
+            <DialogDescription className="text-xs">
+              긴 문장에서 PlayPhrase로 검색하기 좋은 3~6단어 핵심 표현만 추출해 보세요.
+            </DialogDescription>
+          </DialogHeader>
+          {pickFor && (
+            <div className="space-y-3">
+              <div className="rounded-md bg-muted/40 p-2.5 text-xs">
+                <p className="text-muted-foreground">원문 #{pickFor.sentenceNo} · {pickFor.category}</p>
+                <p className="mt-1">{pickFor.english}</p>
+                <p className="text-muted-foreground mt-0.5">{pickFor.korean}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">영어 표현</Label>
+                <Input
+                  data-testid="input-pick-en"
+                  value={pickEn}
+                  onChange={(e) => setPickEn(e.target.value)}
+                  placeholder="예: I'm so glad to meet you"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">한글 뜻 (선택)</Label>
+                <Input
+                  data-testid="input-pick-ko"
+                  value={pickKo}
+                  onChange={(e) => setPickKo(e.target.value)}
+                  placeholder="번역 또는 메모"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPickFor(null)} type="button">취소</Button>
+            <Button onClick={savePhrase} disabled={savePhraseMut.isPending} data-testid="button-save-pick">
+              {savePhraseMut.isPending ? "저장 중..." : "추가"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import StudyLogPage from "@/pages/StudyLog";
 import PeppaPage from "@/pages/Peppa";
 import ToeicPage from "@/pages/Toeic";
+import PhrasesPage from "@/pages/Phrases";
 import PredictPage from "@/pages/Predict";
 import QuizPage from "@/pages/Quiz";
 import SettingsPage from "@/pages/Settings";
@@ -26,6 +27,7 @@ function AppRouter() {
         <Route path="/log" component={StudyLogPage} />
         <Route path="/peppa" component={PeppaPage} />
         <Route path="/toeic" component={ToeicPage} />
+        <Route path="/phrases" component={PhrasesPage} />
         <Route path="/quiz" component={QuizPage} />
         <Route path="/predict" component={PredictPage} />
         <Route path="/settings" component={SettingsPage} />

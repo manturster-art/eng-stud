@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "./Logo";
 import { useTheme } from "./ThemeProvider";
-import { Moon, Sun, LayoutDashboard, Pencil, Tv2, MessagesSquare, Settings as SettingsIcon, Sparkles, Brain, LogOut } from "lucide-react";
+import { Moon, Sun, LayoutDashboard, Pencil, Tv2, MessagesSquare, Settings as SettingsIcon, Sparkles, Brain, LogOut, MessageSquareQuote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/", label: "대시보드", icon: LayoutDashboard, testId: "nav-dashboard" },
   { href: "/log", label: "학습 기록", icon: Pencil, testId: "nav-log" },
   { href: "/peppa", label: "페파피그", icon: Tv2, testId: "nav-peppa" },
+  { href: "/phrases", label: "표현 학습", icon: MessageSquareQuote, testId: "nav-phrases" },
   { href: "/toeic", label: "토익 400문장", icon: MessagesSquare, testId: "nav-toeic" },
   { href: "/quiz", label: "오늘의 퀴즈", icon: Brain, testId: "nav-quiz" },
   { href: "/predict", label: "목표 예측", icon: Sparkles, testId: "nav-predict" },

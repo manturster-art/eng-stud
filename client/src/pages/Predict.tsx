@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { StudyLog, Settings, ToeicSentence, PeppaEpisode } from "@shared/schema";
+import type { StudyLog, Settings, ToeicSentence, PeppaEpisode, Phrase } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -26,8 +26,9 @@ export default function PredictPage() {
   const { data: settings = null } = useQuery<Settings | null>({ queryKey: ["/api/settings"] });
   const { data: toeic = [] } = useQuery<ToeicSentence[]>({ queryKey: ["/api/toeic"] });
   const { data: peppa = [] } = useQuery<PeppaEpisode[]>({ queryKey: ["/api/peppa"] });
+  const { data: phrases = [] } = useQuery<Phrase[]>({ queryKey: ["/api/phrases"] });
 
-  const pred = predictGoal(logs, toeic, peppa, settings);
+  const pred = predictGoal(logs, toeic, peppa, settings, phrases);
   const cefrCurrent = scoreToCEFR(pred.currentScore);
   const cefrPredicted = scoreToCEFR(pred.predictedScore);
   const days = progressDays(settings);
@@ -69,11 +70,12 @@ export default function PredictPage() {
   const elapsedWeeks = weeks.filter((w) => parseISO(w.weekStart) <= new Date());
 
   const breakdownItems = [
-    { label: "학습 시간 진척", value: pred.breakdown.timeProgress, weight: 40 },
-    { label: "토익 마스터", value: pred.breakdown.toeicProgress, weight: 25 },
-    { label: "페파피그 쉐도잉", value: pred.breakdown.peppaProgress, weight: 15 },
+    { label: "학습 시간 진척", value: pred.breakdown.timeProgress, weight: 35 },
+    { label: "토익 마스터", value: pred.breakdown.toeicProgress, weight: 20 },
+    { label: "페파피그 쉐도잉", value: pred.breakdown.peppaProgress, weight: 12 },
+    { label: "표현 마스터", value: pred.breakdown.phrasesProgress, weight: 10 },
     { label: "주간 일관성", value: pred.breakdown.consistency, weight: 15 },
-    { label: "자체 평가", value: pred.breakdown.selfRating, weight: 5 },
+    { label: "자체 평가", value: pred.breakdown.selfRating, weight: 8 },
   ];
 
   const trendIcon = pred.trend === "ahead" ? TrendingUp : pred.trend === "behind" ? TrendingDown : Minus;
@@ -189,7 +191,7 @@ export default function PredictPage() {
           <CardTitle className="text-sm">예측 점수 구성요소 (가중치별 진척률)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid sm:grid-cols-5 gap-4">
+          <div className="grid sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {breakdownItems.map((b) => (
               <div key={b.label}>
                 <div className="h-32 flex items-center justify-center">
@@ -225,7 +227,7 @@ export default function PredictPage() {
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground space-y-2 leading-relaxed">
           <p>
-            예측 점수 = 학습시간 진척(40%) + 토익 마스터(25%) + 페파피그 쉐도잉(15%) + 주간 일관성(15%) + 자체평가(5%)
+            예측 점수 = 학습시간(35%) + 토익 마스터(20%) + 페파피그 쉐도잉(12%) + 표현 마스터(10%) + 주간 일관성(15%) + 자체평가(8%)
           </p>
           <p>
             CEFR A2(TOEIC 400~500)에서 B1(일반회화)까지 도달에 필요한 표준 학습량 280시간을 기준으로 산정됩니다.

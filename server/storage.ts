@@ -4,6 +4,7 @@ import {
   peppaEpisodes,
   toeicSentences,
   settings,
+  phrases,
 } from "@shared/schema";
 import type {
   User,
@@ -16,6 +17,8 @@ import type {
   InsertToeic,
   Settings,
   InsertSettings,
+  Phrase,
+  InsertPhrase,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
@@ -92,6 +95,22 @@ sqlite.exec(`
     weekly_peppa_target INTEGER NOT NULL DEFAULT 7,
     goal_level TEXT NOT NULL DEFAULT '일반회화'
   );
+  CREATE TABLE IF NOT EXISTS phrases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    phrase_en TEXT NOT NULL,
+    phrase_ko TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'seed',
+    source_ref_id INTEGER,
+    source_label TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT 'daily',
+    mastery_level INTEGER NOT NULL DEFAULT 0,
+    review_count INTEGER NOT NULL DEFAULT 0,
+    playphrase_opened_count INTEGER NOT NULL DEFAULT 0,
+    bookmarked INTEGER NOT NULL DEFAULT 0,
+    last_reviewed_at TEXT,
+    created_at TEXT NOT NULL
+  );
 `);
 
 // 기존 DB 호환을 위한 idempotent 마이그레이션
@@ -112,6 +131,8 @@ safeAlter("ALTER TABLE study_logs ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0"
 safeAlter("ALTER TABLE peppa_episodes ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
 safeAlter("ALTER TABLE toeic_sentences ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
 safeAlter("ALTER TABLE settings ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
+// 표현 학습 모듈 컬럼
+safeAlter("ALTER TABLE study_logs ADD COLUMN phrases_reviewed INTEGER NOT NULL DEFAULT 0");
 
 // 인덱스
 function safeIndex(s: string) { try { sqlite.exec(s); } catch (_) {} }
@@ -119,6 +140,7 @@ safeIndex("CREATE INDEX IF NOT EXISTS idx_study_logs_user_date ON study_logs(use
 safeIndex("CREATE INDEX IF NOT EXISTS idx_peppa_user ON peppa_episodes(user_id, season, episode)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_toeic_user_no ON toeic_sentences(user_id, sentence_no)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_settings_user ON settings(user_id)");
+safeIndex("CREATE INDEX IF NOT EXISTS idx_phrases_user ON phrases(user_id, source, created_at)");
 
 export interface IStorage {
   // users
@@ -127,7 +149,13 @@ export interface IStorage {
   countUsers(): Promise<number>;
   hasOrphanData(): Promise<boolean>;
   reassignOrphanData(userId: number): Promise<void>;
-  seedUserData(userId: number, peppaSeed: any[], toeicSeed: any[]): Promise<void>;
+  seedUserData(
+    userId: number,
+    peppaSeed: any[],
+    toeicSeed: any[],
+    phrasesSeed: any[],
+    peppaPhrasesSeed: any[]
+  ): Promise<void>;
 
   // study logs
   listStudyLogs(userId: number): Promise<StudyLog[]>;
@@ -149,6 +177,13 @@ export interface IStorage {
   // settings
   getSettings(userId: number): Promise<Settings | undefined>;
   saveSettings(userId: number, s: InsertSettings): Promise<Settings>;
+
+  // phrases (PlayPhrase 학습)
+  listPhrases(userId: number): Promise<Phrase[]>;
+  createPhrase(userId: number, data: InsertPhrase): Promise<Phrase>;
+  updatePhrase(userId: number, id: number, partial: Partial<InsertPhrase>): Promise<Phrase>;
+  deletePhrase(userId: number, id: number): Promise<void>;
+  recordPhraseReview(userId: number, id: number): Promise<Phrase>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -177,8 +212,15 @@ export class DatabaseStorage implements IStorage {
     sqlite.prepare("UPDATE peppa_episodes SET user_id = ? WHERE user_id = 0").run(userId);
     sqlite.prepare("UPDATE toeic_sentences SET user_id = ? WHERE user_id = 0").run(userId);
     sqlite.prepare("UPDATE settings SET user_id = ? WHERE user_id = 0").run(userId);
+    sqlite.prepare("UPDATE phrases SET user_id = ? WHERE user_id = 0").run(userId);
   }
-  async seedUserData(userId: number, peppaSeed: any[], toeicSeed: any[]) {
+  async seedUserData(
+    userId: number,
+    peppaSeed: any[],
+    toeicSeed: any[],
+    phrasesSeedData: any[] = [],
+    peppaPhrasesSeedData: any[] = []
+  ) {
     const peppaCount = sqlite.prepare("SELECT COUNT(*) as c FROM peppa_episodes WHERE user_id = ?").get(userId) as { c: number };
     if (peppaCount.c === 0) {
       const insert = sqlite.prepare(
@@ -208,6 +250,34 @@ export class DatabaseStorage implements IStorage {
       sqlite.prepare(
         "INSERT INTO settings (user_id, start_date, end_date, daily_listening_target, daily_shadowing_target, daily_conversation_target, weekly_toeic_target, weekly_peppa_target, goal_level) VALUES (?, ?, ?, 40, 30, 20, 50, 7, ?)"
       ).run(userId, "2026-04-25", "2026-12-31", "일반회화 (CEFR B1)");
+    }
+
+    // 표현 시드 — 사용자별로 한 번만 INSERT
+    const phraseCount = sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ?").get(userId) as { c: number };
+    if (phraseCount.c === 0) {
+      const nowIso = new Date().toISOString();
+      const insertSeed = sqlite.prepare(
+        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
+      );
+      const insertPeppa = sqlite.prepare(
+        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
+      );
+      const seedTx = sqlite.transaction(() => {
+        for (const p of phrasesSeedData) {
+          insertSeed.run(userId, p.phraseEn, p.phraseKo, p.category, nowIso);
+        }
+        // Peppa 에피소드 매핑 (season, episode → user별 peppa_episodes.id)
+        const epLookup = sqlite.prepare(
+          "SELECT id, title_en FROM peppa_episodes WHERE user_id = ? AND season = ? AND episode = ?"
+        );
+        for (const p of peppaPhrasesSeedData) {
+          const ep = epLookup.get(userId, p.season, p.episode) as { id: number; title_en: string } | undefined;
+          if (!ep) continue;
+          const label = `Peppa S${p.season}E${String(p.episode).padStart(2, "0")} ${ep.title_en}`;
+          insertPeppa.run(userId, p.phraseEn, p.phraseKo, ep.id, label, p.category, nowIso);
+        }
+      });
+      seedTx();
     }
   }
 
@@ -318,6 +388,48 @@ export class DatabaseStorage implements IStorage {
         .returning().get();
     }
     return db.insert(settings).values({ ...s, userId }).returning().get();
+  }
+
+  // ----- phrases -----
+  async listPhrases(userId: number) {
+    return db.select().from(phrases)
+      .where(eq(phrases.userId, userId))
+      .orderBy(desc(phrases.createdAt))
+      .all();
+  }
+  async createPhrase(userId: number, data: InsertPhrase) {
+    const createdAt = data.createdAt || new Date().toISOString();
+    return db.insert(phrases).values({ ...data, userId, createdAt }).returning().get();
+  }
+  async updatePhrase(userId: number, id: number, partial: Partial<InsertPhrase>) {
+    return db.update(phrases).set(partial)
+      .where(and(eq(phrases.userId, userId), eq(phrases.id, id)))
+      .returning().get();
+  }
+  async deletePhrase(userId: number, id: number) {
+    db.delete(phrases)
+      .where(and(eq(phrases.userId, userId), eq(phrases.id, id)))
+      .run();
+  }
+  async recordPhraseReview(userId: number, id: number) {
+    const current = db.select().from(phrases)
+      .where(and(eq(phrases.userId, userId), eq(phrases.id, id)))
+      .get();
+    if (!current) throw new Error("phrase not found");
+    const newReviewCount = current.reviewCount + 1;
+    // 매 3회 복습마다 마스터리 +1 (최대 4)
+    let newMastery = current.masteryLevel;
+    if (newReviewCount > 0 && newReviewCount % 3 === 0 && newMastery < 4) {
+      newMastery = newMastery + 1;
+    }
+    return db.update(phrases)
+      .set({
+        reviewCount: newReviewCount,
+        masteryLevel: newMastery,
+        lastReviewedAt: new Date().toISOString().slice(0, 10),
+      })
+      .where(and(eq(phrases.userId, userId), eq(phrases.id, id)))
+      .returning().get();
   }
 }
 

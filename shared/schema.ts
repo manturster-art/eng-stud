@@ -31,6 +31,7 @@ export const studyLogs = sqliteTable("study_logs", {
   watchedEpisodeIds: text("watched_episode_ids").default("[]"),
   quizCorrect: integer("quiz_correct").notNull().default(0),
   quizTotal: integer("quiz_total").notNull().default(0),
+  phrasesReviewed: integer("phrases_reviewed").notNull().default(0),
 });
 
 export const insertStudyLogSchema = createInsertSchema(studyLogs).omit({ id: true, userId: true });
@@ -95,3 +96,25 @@ export const settings = sqliteTable("settings", {
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, userId: true });
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Settings = typeof settings.$inferSelect;
+
+// 영어 표현 (PlayPhrase 검색 + 마스터리 추적)
+export const phrases = sqliteTable("phrases", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull(),
+  phraseEn: text("phrase_en").notNull(),
+  phraseKo: text("phrase_ko").notNull().default(""),
+  source: text("source").notNull().default("seed"), // 'seed' | 'peppa' | 'toeic'
+  sourceRefId: integer("source_ref_id"),
+  sourceLabel: text("source_label").notNull().default(""),
+  category: text("category").notNull().default("daily"),
+  masteryLevel: integer("mastery_level").notNull().default(0),
+  reviewCount: integer("review_count").notNull().default(0),
+  playphraseOpenedCount: integer("playphrase_opened_count").notNull().default(0),
+  bookmarked: integer("bookmarked", { mode: "boolean" }).notNull().default(false),
+  lastReviewedAt: text("last_reviewed_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const insertPhraseSchema = createInsertSchema(phrases).omit({ id: true, userId: true });
+export type InsertPhrase = z.infer<typeof insertPhraseSchema>;
+export type Phrase = typeof phrases.$inferSelect;

@@ -6,6 +6,7 @@ import {
   insertPeppaSchema,
   insertToeicSchema,
   insertSettingsSchema,
+  insertPhraseSchema,
 } from "@shared/schema";
 import {
   GOOGLE_CLIENT_ID,
@@ -56,6 +57,7 @@ export async function registerRoutes(
   app.use("/api/peppa", requireAuth);
   app.use("/api/toeic", requireAuth);
   app.use("/api/settings", requireAuth);
+  app.use("/api/phrases", requireAuth);
 
   // ---------- Study Logs ----------
   app.get("/api/study-logs", async (req, res) => {
@@ -139,6 +141,47 @@ export async function registerRoutes(
     }
     const s = await storage.saveSettings(req.auth!.userId, parsed.data);
     res.json(s);
+  });
+
+  // ---------- Phrases (PlayPhrase 학습) ----------
+  app.get("/api/phrases", async (req, res) => {
+    const list = await storage.listPhrases(req.auth!.userId);
+    res.json(list);
+  });
+
+  app.post("/api/phrases", async (req, res) => {
+    const parsed = insertPhraseSchema.safeParse({
+      ...req.body,
+      createdAt: req.body?.createdAt || new Date().toISOString(),
+    });
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues });
+    }
+    const p = await storage.createPhrase(req.auth!.userId, parsed.data);
+    res.json(p);
+  });
+
+  app.patch("/api/phrases/:id", async (req, res) => {
+    const partial = insertPhraseSchema.partial().safeParse(req.body);
+    if (!partial.success) {
+      return res.status(400).json({ error: partial.error.issues });
+    }
+    const p = await storage.updatePhrase(
+      req.auth!.userId,
+      Number(req.params.id),
+      partial.data
+    );
+    res.json(p);
+  });
+
+  app.delete("/api/phrases/:id", async (req, res) => {
+    await storage.deletePhrase(req.auth!.userId, Number(req.params.id));
+    res.json({ ok: true });
+  });
+
+  app.post("/api/phrases/:id/review", async (req, res) => {
+    const p = await storage.recordPhraseReview(req.auth!.userId, Number(req.params.id));
+    res.json(p);
   });
 
   return httpServer;

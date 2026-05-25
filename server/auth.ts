@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 import { storage } from "./storage";
 import { peppaSeed } from "./seed-peppa";
 import { toeicSeed } from "./seed-toeic";
+import { phrasesSeed } from "./seed-phrases";
+import { peppaPhrasesSeed } from "./seed-peppa-phrases";
 
 export const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
@@ -79,9 +81,11 @@ export async function loginOrRegisterUser(googleProfile: {
     // 첫 사용자인 경우 기존 orphan(user_id=0) 데이터를 이 계정에 귀속
     if (isFirstUser && (await storage.hasOrphanData())) {
       await storage.reassignOrphanData(user.id);
+      // orphan 데이터 인수 후에도 표현 시드는 비어있을 수 있으므로 함께 시드
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
     } else {
       // 그 외 사용자는 새 시드 데이터 생성
-      await storage.seedUserData(user.id, peppaSeed, toeicSeed);
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
     }
   }
   return { user, isFirstUser };

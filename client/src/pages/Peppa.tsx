@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { PeppaEpisode } from "@shared/schema";
+import type { PeppaEpisode, Phrase } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Mic, CheckCircle2, RotateCcw, Play, ExternalLink } from "lucide-react";
-import { todayISO, peppaVideoUrl } from "@/lib/utils-study";
+import {
+  Eye, Mic, CheckCircle2, RotateCcw, Play, ExternalLink,
+  ChevronDown, ChevronUp, Film, Volume2,
+} from "lucide-react";
+import { todayISO, peppaVideoUrl, speakEnglish } from "@/lib/utils-study";
+import { PlayPhraseModal } from "@/components/PlayPhraseModal";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "예정",
@@ -25,7 +29,30 @@ const STATUS_TONE: Record<string, string> = {
 
 export default function PeppaPage() {
   const { data: list = [] } = useQuery<PeppaEpisode[]>({ queryKey: ["/api/peppa"] });
+  const { data: allPhrases = [] } = useQuery<Phrase[]>({ queryKey: ["/api/phrases"] });
   const [season, setSeason] = useState<string>("all");
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [modalPhrase, setModalPhrase] = useState<Phrase | null>(null);
+
+  const phrasesByEp = useMemo(() => {
+    const map = new Map<number, Phrase[]>();
+    for (const p of allPhrases) {
+      if (p.source !== "peppa" || !p.sourceRefId) continue;
+      const arr = map.get(p.sourceRefId) ?? [];
+      arr.push(p);
+      map.set(p.sourceRefId, arr);
+    }
+    return map;
+  }, [allPhrases]);
+
+  const toggleExpand = (epId: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(epId)) next.delete(epId);
+      else next.add(epId);
+      return next;
+    });
+  };
 
   const seasons = useMemo(() => Array.from(new Set(list.map((e) => e.season))).sort((a, b) => a - b), [list]);
   const filtered = season === "all" ? list : list.filter((e) => String(e.season) === season);
@@ -44,6 +71,16 @@ export default function PeppaPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/peppa"] }),
+  });
+
+  const phraseOpenedMut = useMutation({
+    mutationFn: async (phrase: Phrase) => {
+      const res = await apiRequest("PATCH", `/api/phrases/${phrase.id}`, {
+        playphraseOpenedCount: phrase.playphraseOpenedCount + 1,
+      });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/phrases"] }),
   });
 
   const onWatch = (e: PeppaEpisode) => {
@@ -126,75 +163,142 @@ export default function PeppaPage() {
       </div>
 
       <div className="grid gap-2">
-        {filtered.map((e) => (
-          <div
-            key={e.id}
-            data-testid={`row-peppa-${e.id}`}
-            className="border rounded-lg p-3 sm:p-4 hover-elevate flex flex-wrap items-center gap-3"
-          >
-            {/* 타이틀 영역 클릭 시 영상 바로 열기 */}
-            <button
-              type="button"
-              onClick={() => onPlay(e)}
-              data-testid={`link-play-${e.id}`}
-              className="flex items-center gap-2 min-w-0 flex-1 text-left rounded-md hover-elevate active-elevate-2 px-1.5 py-1 -mx-1.5 -my-1"
-              title="영상으로 이동 (YouTube 새 탭)"
+        {filtered.map((e) => {
+          const epPhrases = phrasesByEp.get(e.id) ?? [];
+          const isExpanded = expanded.has(e.id);
+          return (
+            <div
+              key={e.id}
+              data-testid={`row-peppa-${e.id}`}
+              className="border rounded-lg p-3 sm:p-4 hover-elevate"
             >
-              <Badge variant="outline" className="tabular text-[10px] px-1.5 py-0 shrink-0">
-                S{e.season}E{String(e.episode).padStart(2, "0")}
-              </Badge>
-              <Play className="size-3.5 text-primary shrink-0" />
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate flex items-center gap-1">
-                  {e.titleEn}
-                  <ExternalLink className="size-3 text-muted-foreground/60" />
+              <div className="flex flex-wrap items-center gap-3">
+                {/* 타이틀 영역 클릭 시 영상 바로 열기 */}
+                <button
+                  type="button"
+                  onClick={() => onPlay(e)}
+                  data-testid={`link-play-${e.id}`}
+                  className="flex items-center gap-2 min-w-0 flex-1 text-left rounded-md hover-elevate active-elevate-2 px-1.5 py-1 -mx-1.5 -my-1"
+                  title="영상으로 이동 (YouTube 새 탭)"
+                >
+                  <Badge variant="outline" className="tabular text-[10px] px-1.5 py-0 shrink-0">
+                    S{e.season}E{String(e.episode).padStart(2, "0")}
+                  </Badge>
+                  <Play className="size-3.5 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate flex items-center gap-1">
+                      {e.titleEn}
+                      <ExternalLink className="size-3 text-muted-foreground/60" />
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{e.titleKo}</div>
+                  </div>
+                </button>
+
+                <div className="flex items-center gap-3 text-xs tabular text-muted-foreground">
+                  <span className="flex items-center gap-1" title="시청 횟수">
+                    <Eye className="size-3" />
+                    {e.watchedCount}
+                  </span>
+                  <span className="flex items-center gap-1" title="쉐도잉 횟수">
+                    <Mic className="size-3" />
+                    {e.shadowedCount}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_TONE[e.status]}`}>
+                    {STATUS_LABEL[e.status]}
+                  </span>
                 </div>
-                <div className="text-xs text-muted-foreground truncate">{e.titleKo}</div>
+
+                <div className="flex items-center gap-1.5">
+                  {epPhrases.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => toggleExpand(e.id)}
+                      data-testid={`button-expand-phrases-${e.id}`}
+                      title="이 에피소드 핵심 표현"
+                    >
+                      {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                      표현 {epPhrases.length}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs gap-1"
+                    onClick={() => onShadow(e)}
+                    data-testid={`button-shadow-${e.id}`}
+                    title="쉐도잉 횟수 +1"
+                  >
+                    <Mic className="size-3" /> 쉐도잉
+                  </Button>
+                  {e.status === "mastered" && (
+                    <CheckCircle2 className="size-4 text-primary" />
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0"
+                    onClick={() => onReset(e)}
+                    data-testid={`button-reset-${e.id}`}
+                    title="초기화"
+                  >
+                    <RotateCcw className="size-3" />
+                  </Button>
+                </div>
               </div>
-            </button>
 
-            <div className="flex items-center gap-3 text-xs tabular text-muted-foreground">
-              <span className="flex items-center gap-1" title="시청 횟수">
-                <Eye className="size-3" />
-                {e.watchedCount}
-              </span>
-              <span className="flex items-center gap-1" title="쉐도잉 횟수">
-                <Mic className="size-3" />
-                {e.shadowedCount}
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_TONE[e.status]}`}>
-                {STATUS_LABEL[e.status]}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs gap-1"
-                onClick={() => onShadow(e)}
-                data-testid={`button-shadow-${e.id}`}
-                title="쉐도잉 횟수 +1"
-              >
-                <Mic className="size-3" /> 쉐도잉
-              </Button>
-              {e.status === "mastered" && (
-                <CheckCircle2 className="size-4 text-primary" />
+              {isExpanded && epPhrases.length > 0 && (
+                <div className="mt-3 pt-3 border-t space-y-2" data-testid={`phrases-list-${e.id}`}>
+                  {epPhrases.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md bg-muted/40"
+                    >
+                      <span className="flex-1 leading-relaxed">
+                        {p.phraseEn}
+                        {p.phraseKo && (
+                          <span className="text-xs text-muted-foreground ml-2">— {p.phraseKo}</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => speakEnglish(p.phraseEn)}
+                        className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-primary hover-elevate active-elevate-2"
+                        title="발음 듣기"
+                        data-testid={`button-phrase-speak-${p.id}`}
+                      >
+                        <Volume2 className="size-3.5" />
+                      </button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => setModalPhrase(p)}
+                        data-testid={`button-phrase-playphrase-${p.id}`}
+                        title="PlayPhrase 클립 보기"
+                      >
+                        <Film className="size-3" /> PlayPhrase
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 p-0"
-                onClick={() => onReset(e)}
-                data-testid={`button-reset-${e.id}`}
-                title="초기화"
-              >
-                <RotateCcw className="size-3" />
-              </Button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {modalPhrase && (
+        <PlayPhraseModal
+          open={!!modalPhrase}
+          onOpenChange={(o) => !o && setModalPhrase(null)}
+          phraseEn={modalPhrase.phraseEn}
+          phraseKo={modalPhrase.phraseKo}
+          sourceLabel={modalPhrase.sourceLabel}
+          onOpenedInNewTab={() => phraseOpenedMut.mutate(modalPhrase)}
+        />
+      )}
 
       <p className="text-xs text-muted-foreground">
         제목을 클릭하시면 YouTube에서 해당 에피소드 검색 결과로 이동하며 시청 횟수가 자동으로 +1 증가합니다.

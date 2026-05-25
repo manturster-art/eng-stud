@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { StudyLog, Settings } from "@shared/schema";
-import { fmt, totalMin, dailyTargetMin } from "@/lib/utils-study";
+import { fmt, totalActivityMin, dailyTargetMin } from "@/lib/utils-study";
 import { parseISO, addDays, differenceInCalendarDays, format } from "date-fns";
 import { ko } from "date-fns/locale";
 
@@ -30,7 +30,7 @@ export function StudyHeatmap({
     const totalGridDays = totalDays + offset;
     const weeks = Math.ceil(totalGridDays / 7);
 
-    const logMap = new Map(logs.map((l) => [l.date, totalMin(l)]));
+    const logMap = new Map(logs.map((l) => [l.date, totalActivityMin(l)]));
 
     const grid: { date: string; minutes: number; level: number; outOfRange: boolean }[][] = [];
     for (let w = 0; w < weeks; w++) {

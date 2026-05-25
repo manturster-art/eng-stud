@@ -7,7 +7,7 @@ import {
   eachWeekOfInterval,
   isWithinInterval,
 } from "date-fns";
-import type { StudyLog, Settings, ToeicSentence, PeppaEpisode } from "@shared/schema";
+import type { StudyLog, Settings, ToeicSentence, PeppaEpisode, Phrase } from "@shared/schema";
 
 export function todayISO(): string {
   return format(new Date(), "yyyy-MM-dd");
@@ -18,9 +18,14 @@ export function fmt(date: Date | string): string {
   return format(d, "yyyy-MM-dd");
 }
 
-/** 일일 총 학습시간 (분) */
+/** 일일 총 학습시간 (분) — 시간 기반 활동만 */
 export function totalMin(log: StudyLog): number {
   return log.listeningMin + log.shadowingMin + log.conversationMin;
+}
+
+/** 일일 총 활동량 (분 환산) — 시간 + 표현 복습(1개당 1분 가산) */
+export function totalActivityMin(log: StudyLog): number {
+  return totalMin(log) + (log.phrasesReviewed ?? 0);
 }
 
 /** 일일 목표 (분) */
@@ -133,6 +138,7 @@ export interface Prediction {
     timeProgress: number;
     toeicProgress: number;
     peppaProgress: number;
+    phrasesProgress: number;
     consistency: number;
     selfRating: number;
   };
@@ -142,13 +148,23 @@ export interface Prediction {
 
 const TARGET_TOTAL_HOURS = 280; // CEFR A2→B1 표준
 const TARGET_PEPPA_EPISODES = 50; // 쉐도잉 완성 목표
+const TARGET_MASTERED_PHRASES = 50; // 마스터(★3 이상) 표현 목표
 const PASS_THRESHOLD = 70; // 일반회화 도달 문턱
+
+// 가중치 (합계 1.0)
+const W_TIME = 0.35;
+const W_TOEIC = 0.20;
+const W_PEPPA = 0.12;
+const W_PHRASES = 0.10;
+const W_CONSISTENCY = 0.15;
+const W_SELF = 0.08;
 
 export function predictGoal(
   logs: StudyLog[],
   toeic: ToeicSentence[],
   peppa: PeppaEpisode[],
-  settings: Settings | null
+  settings: Settings | null,
+  phrases: Phrase[] = []
 ): Prediction {
   const totalCurrentMin = logs.reduce((a, b) => a + totalMin(b), 0);
   const totalCurrentHours = totalCurrentMin / 60;
@@ -156,11 +172,13 @@ export function predictGoal(
   const shadowedPeppa = peppa.filter(
     (p) => p.status === "shadowing" || p.status === "mastered"
   ).length;
+  const masteredPhrases = phrases.filter((p) => p.masteryLevel >= 3).length;
 
   // 진척률 (0-1)
   const P_time = Math.min(1, totalCurrentHours / TARGET_TOTAL_HOURS);
   const P_toeic = Math.min(1, masteredToeic / 400);
   const P_peppa = Math.min(1, shadowedPeppa / TARGET_PEPPA_EPISODES);
+  const P_phrases = Math.min(1, masteredPhrases / TARGET_MASTERED_PHRASES);
 
   // 주간 일관성: 최근 4주 중 목표 80% 달성한 주
   const weeks = settings ? aggregateByWeek(logs, settings) : [];
@@ -184,13 +202,19 @@ export function predictGoal(
     timeProgress: P_time,
     toeicProgress: P_toeic,
     peppaProgress: P_peppa,
+    phrasesProgress: P_phrases,
     consistency,
     selfRating,
   };
 
   const currentScore =
     100 *
-    (0.4 * P_time + 0.25 * P_toeic + 0.15 * P_peppa + 0.15 * consistency + 0.05 * selfRating);
+    (W_TIME * P_time +
+      W_TOEIC * P_toeic +
+      W_PEPPA * P_peppa +
+      W_PHRASES * P_phrases +
+      W_CONSISTENCY * consistency +
+      W_SELF * selfRating);
 
   // 미래 외삽: 최근 7일 일평균 학습 분
   const recent7 = lastNDays(logs, 7);
@@ -221,9 +245,26 @@ export function predictGoal(
   const projP_toeic = projectedMasteredToeic / 400;
   const projP_peppa = projectedShadowed / TARGET_PEPPA_EPISODES;
 
+  // 표현 외삽: 최근 7일 phrasesReviewed 평균 → 잔여 일수
+  const recentPhrasePerDay =
+    recent7.length > 0
+      ? recent7.reduce((a, b) => a + (b.phrasesReviewed ?? 0), 0) / recent7.length
+      : 0;
+  // 복습한 표현의 25%가 마스터로 도달한다고 가정
+  const projectedMasteredPhrases = Math.min(
+    TARGET_MASTERED_PHRASES,
+    masteredPhrases + recentPhrasePerDay * remaining * 0.25
+  );
+  const projP_phrases = projectedMasteredPhrases / TARGET_MASTERED_PHRASES;
+
   const predictedScore =
     100 *
-    (0.4 * projectedP_time + 0.25 * projP_toeic + 0.15 * projP_peppa + 0.15 * consistency + 0.05 * selfRating);
+    (W_TIME * projectedP_time +
+      W_TOEIC * projP_toeic +
+      W_PEPPA * projP_peppa +
+      W_PHRASES * projP_phrases +
+      W_CONSISTENCY * consistency +
+      W_SELF * selfRating);
 
   // 도달 확률: 시그모이드 (predictedScore - 70) / 8 → 0-100%
   const probability = Math.round(
