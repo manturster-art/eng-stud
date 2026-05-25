@@ -10,8 +10,10 @@
 - `.claude/agents/feature-scaffolder.md` — schema → storage → routes → page 4단 풀스택 스캐폴딩
 - `.claude/agents/content-curator.md` — 시드 데이터 큐레이션 (PlayPhrase 최적화 + 자연스러운 한글)
 - `.claude/agents/module-reviewer.md` — 경계면 정합성·통합 누락·npm run check 검증
+- `.claude/agents/design-reviewer.md` — UI 일관성·한국어 라벨·모바일 반응형·접근성·상태 디자인·다크모드 검증 (module-reviewer와 병렬)
 
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
 | 2026-05-25 | 초기 하네스 구성 | 전체 | feature/content/review 3에이전트 파이프라인 신규 |
+| 2026-05-25 | design-reviewer 추가 | agents/design-reviewer.md, skills/review-design, orchestrator | UX·디자인 검증 영역 분리, module-reviewer와 병렬 실행 |

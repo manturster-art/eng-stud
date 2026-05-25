@@ -1,6 +1,6 @@
 ---
 name: eng-stud-harness
-description: "eng-stud 영어 학습 대시보드의 모듈/콘텐츠 확장을 feature-scaffolder + content-curator + module-reviewer 3에이전트 파이프라인으로 조율한다. '새 학습 모듈 추가', '학습 페이지 만들기', 'Peppa 시즌 N 표현 추가', '시드 데이터 확장', '동화/팟캐스트/발음 평가 모듈', 'TOEIC 표현 일괄 발췌', '신규 카테고리 추가' 등 학습 콘텐츠·기능 확장 요청에 반드시 사용한다. 이전 산출물 기반의 '다시 실행', '부분 수정', '리뷰만 다시', '결과 개선' 요청도 처리. 단순 버그 수정·문구 수정·CSS 조정은 트리거하지 않는다."
+description: "eng-stud 영어 학습 대시보드의 모듈/콘텐츠 확장을 feature-scaffolder + content-curator + module-reviewer + design-reviewer 4에이전트 파이프라인으로 조율한다. '새 학습 모듈 추가', '학습 페이지 만들기', 'Peppa 시즌 N 표현 추가', '시드 데이터 확장', '동화/팟캐스트/발음 평가 모듈', 'TOEIC 표현 일괄 발췌', '신규 카테고리 추가', '디자인/UX 검토' 등 학습 콘텐츠·기능 확장 요청에 반드시 사용한다. 이전 산출물 기반의 '다시 실행', '부분 수정', '리뷰만 다시', '결과 개선' 요청도 처리. 단순 버그 수정·문구 수정·CSS 조정은 트리거하지 않는다."
 ---
 
 # eng-stud Harness Orchestrator
@@ -51,27 +51,40 @@ description: "eng-stud 영어 학습 대시보드의 모듈/콘텐츠 확장을 
    └── prompt: 시드 명세 + 참조 지시
    → _workspace/02_curate/
 
-3. Agent(module-reviewer)
-   ├── model: "opus"
-   └── prompt: 검토 대상 경로 + 통합 영역 + 참조 지시
-   → _workspace/03_review/report.md
+3. 병렬 검토 (단일 메시지 내 2개 Agent 호출):
+   ├── Agent(module-reviewer) → _workspace/03_review/report.md
+   │   ├── 영역: schema↔storage↔routes↔page 정합성, userId, 통합 누락, npm run check
+   │   └── model: "opus"
+   └── Agent(design-reviewer) → _workspace/03_design/report.md
+       ├── 영역: UI 일관성, 한국어 라벨, 모바일 반응형, 접근성, 상태 디자인, 다크모드
+       └── model: "opus"
 ```
 
 ### 콘텐츠 확장
 ```
 1. Agent(content-curator) → _workspace/02_curate/
 2. Agent(module-reviewer) → _workspace/03_review/
+   (콘텐츠만 변경된 경우 design-reviewer 생략 — UI 컴포넌트 변경 없음)
 ```
 
 ### 부분 재실행
 해당 단계만 재호출. 이전 산출물 경로를 입력으로 전달.
+디자인만 다시 검토하려면 design-reviewer 단독 호출 가능.
 
 ## Phase 3: 리뷰 결과 처리
 
-- **Blocker 0개**: 사용자에게 PR 초안 + 변경 요약 제시 → 승인 시 reviewer 또는 오케스트레이터가 실제 파일 적용 (curator 산출물의 경우) + 커밋/푸시
+두 reviewer의 보고를 통합한다:
+- `_workspace/03_review/report.md` (구조 정합성)
+- `_workspace/03_design/report.md` (디자인/UX, 신규 모듈일 때만 존재)
+
+통합 Blocker 합산 후 분기:
+- **Blocker 0개**: 두 보고서 요약 + PR 초안 제시 → 승인 시 시드 병합 (필요 시) + 커밋/푸시
 - **Blocker N개**:
-  - 자동 수정 가능: reviewer가 적용한 결과 보고
-  - 재호출 필요: 해당 에이전트 1회 재호출 (Phase 2 일부 반복)
+  - 자동 수정 가능: 각 reviewer가 적용한 결과 합산 보고
+  - 재호출 필요: 어느 영역의 Blocker인지 판단하여 scaffolder 또는 curator 1회 재호출
+    - 구조 Blocker → scaffolder
+    - 디자인 Blocker → scaffolder (UI는 scaffolder 영역)
+    - 시드 Blocker → curator
   - 2회째 실패: 사용자에게 수동 결정 요청
 
 ## Phase 4: 마무리
@@ -142,8 +155,12 @@ Agent({
 5. PR 초안 제시
 
 ## 산출물 위치
-- 에이전트 정의: `.claude/agents/{feature-scaffolder,content-curator,module-reviewer}.md`
-- 에이전트 스킬: `.claude/skills/{scaffold-feature,curate-content,review-module}/SKILL.md`
+- 에이전트 정의: `.claude/agents/{feature-scaffolder,content-curator,module-reviewer,design-reviewer}.md`
+- 에이전트 스킬: `.claude/skills/{scaffold-feature,curate-content,review-module,review-design}/SKILL.md`
 - 오케스트레이터: `.claude/skills/eng-stud-harness/SKILL.md` (이 파일)
 - 중간 산출물: `_workspace/` (gitignored)
+  - `_workspace/01_scaffold/` — scaffolder 산출
+  - `_workspace/02_curate/` — curator 산출
+  - `_workspace/03_review/` — module-reviewer 산출 (구조 정합성)
+  - `_workspace/03_design/` — design-reviewer 산출 (디자인/UX)
 - 변경 이력: `CLAUDE.md`
