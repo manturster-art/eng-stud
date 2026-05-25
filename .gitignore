@@ -14,3 +14,7 @@ data.db-journal
 
 *.log
 .DS_Store
+
+# Harness intermediate workspace (agent handoff artifacts)
+_workspace/
+_workspace_prev/
