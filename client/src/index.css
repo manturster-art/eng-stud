@@ -1,0 +1,196 @@
+/* Korean-optimized font (Pretendard) — preserves clean numerals and tight tracking for dashboard data */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LIGHT MODE — warm emerald (성장) + amber (성취) */
+:root {
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.07);
+  --background: 60 20% 99%;
+  --foreground: 160 18% 12%;
+  --border: 150 14% 90%;
+  --card: 0 0% 100%;
+  --card-foreground: 160 18% 12%;
+  --card-border: 150 14% 91%;
+  --sidebar: 158 28% 96%;
+  --sidebar-foreground: 160 18% 14%;
+  --sidebar-border: 158 18% 88%;
+  --sidebar-primary: 158 64% 38%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 158 22% 90%;
+  --sidebar-accent-foreground: 160 18% 14%;
+  --sidebar-ring: 158 64% 38%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 18% 12%;
+  --popover-border: 150 14% 90%;
+  --primary: 158 64% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 158 22% 92%;
+  --secondary-foreground: 160 18% 14%;
+  --muted: 150 16% 94%;
+  --muted-foreground: 158 10% 38%;
+  --accent: 38 92% 92%;
+  --accent-foreground: 30 50% 22%;
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 150 14% 84%;
+  --ring: 158 64% 38%;
+  --chart-1: 158 64% 38%;
+  --chart-2: 200 80% 48%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 280 50% 55%;
+  --chart-5: 12 78% 56%;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0 1px 2px 0 hsl(160 30% 10% / 0.04);
+  --shadow-xs: 0 1px 2px 0 hsl(160 30% 10% / 0.05);
+  --shadow-sm: 0 1px 3px 0 hsl(160 30% 10% / 0.06), 0 1px 2px -1px hsl(160 30% 10% / 0.04);
+  --shadow: 0 2px 8px -1px hsl(160 30% 10% / 0.08), 0 1px 2px -1px hsl(160 30% 10% / 0.04);
+  --shadow-md: 0 4px 12px -2px hsl(160 30% 10% / 0.10), 0 2px 4px -2px hsl(160 30% 10% / 0.05);
+  --shadow-lg: 0 12px 24px -4px hsl(160 30% 10% / 0.12), 0 4px 8px -2px hsl(160 30% 10% / 0.06);
+  --shadow-xl: 0 20px 40px -6px hsl(160 30% 10% / 0.14), 0 8px 16px -4px hsl(160 30% 10% / 0.08);
+  --shadow-2xl: 0 32px 64px -8px hsl(160 30% 10% / 0.18);
+  --tracking-normal: -0.005em;
+  --spacing: 0.25rem;
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+.dark {
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.05);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.08);
+  --background: 160 18% 6%;
+  --foreground: 150 14% 96%;
+  --border: 158 14% 16%;
+  --card: 160 16% 9%;
+  --card-foreground: 150 14% 96%;
+  --card-border: 158 14% 14%;
+  --sidebar: 160 18% 10%;
+  --sidebar-foreground: 150 14% 96%;
+  --sidebar-border: 158 14% 16%;
+  --sidebar-primary: 158 60% 50%;
+  --sidebar-primary-foreground: 160 18% 8%;
+  --sidebar-accent: 158 18% 16%;
+  --sidebar-accent-foreground: 150 14% 96%;
+  --sidebar-ring: 158 60% 50%;
+  --popover: 160 16% 11%;
+  --popover-foreground: 150 14% 96%;
+  --popover-border: 158 14% 18%;
+  --primary: 158 60% 50%;
+  --primary-foreground: 160 18% 8%;
+  --secondary: 158 14% 18%;
+  --secondary-foreground: 150 14% 96%;
+  --muted: 160 14% 16%;
+  --muted-foreground: 150 10% 62%;
+  --accent: 38 60% 22%;
+  --accent-foreground: 38 92% 88%;
+  --destructive: 0 62% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 158 14% 22%;
+  --ring: 158 60% 50%;
+  --chart-1: 158 60% 55%;
+  --chart-2: 200 80% 60%;
+  --chart-3: 38 92% 60%;
+  --chart-4: 280 60% 70%;
+  --chart-5: 12 80% 65%;
+  --shadow-2xs: 0 1px 2px 0 hsl(0 0% 0% / 0.20);
+  --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.25);
+  --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.30), 0 1px 2px -1px hsl(0 0% 0% / 0.20);
+  --shadow: 0 2px 8px -1px hsl(0 0% 0% / 0.35), 0 1px 2px -1px hsl(0 0% 0% / 0.20);
+  --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.40);
+  --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.45);
+  --shadow-xl: 0 20px 40px -6px hsl(0 0% 0% / 0.50);
+  --shadow-2xl: 0 32px 64px -8px hsl(0 0% 0% / 0.60);
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "ss01", "tnum";
+    letter-spacing: var(--tracking-normal);
+  }
+  /* tabular numerals for dashboard metrics */
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@layer utilities {
+  input[type='search']::-webkit-search-cancel-button { @apply hidden; }
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+  .no-default-hover-elevate {}
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before, .toggle-elevate-2::before {
+    content: ''; pointer-events: none; position: absolute; inset: 0;
+    border-radius: inherit; z-index: -1;
+  }
+  .toggle-elevate.toggle-elevated::before { background-color: var(--elevate-2); }
+  .border.toggle-elevate::before { inset: -1px; }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) { position: relative; z-index: 0; }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: ''; pointer-events: none; position: absolute; inset: 0;
+    border-radius: inherit; z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-1); }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-2); }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after { inset: -1px; }
+}
