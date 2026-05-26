@@ -10,9 +10,10 @@ import {
 } from "@shared/schema";
 import {
   GOOGLE_CLIENT_ID,
-  PASSWORD_AUTH_ENABLED,
+  SIGNUP_ENABLED,
   loginOrRegisterUser,
-  loginWithPassword,
+  loginUser,
+  registerUser,
   requireAuth,
   signSession,
   verifyGoogleIdToken,
@@ -26,7 +27,7 @@ export async function registerRoutes(
   app.get("/api/auth/config", (_req, res) => {
     res.json({
       googleClientId: GOOGLE_CLIENT_ID,
-      passwordAuthEnabled: PASSWORD_AUTH_ENABLED,
+      signupEnabled: SIGNUP_ENABLED,
     });
   });
 
@@ -53,12 +54,14 @@ export async function registerRoutes(
     }
   });
 
-  // ---------- Auth: 비밀번호 로그인 (단일 사용자) ----------
-  app.post("/api/auth/password", async (req, res) => {
+  // ---------- Auth: 사용자명+비밀번호 로그인 ----------
+  app.post("/api/auth/login", async (req, res) => {
     try {
-      const { password } = req.body || {};
-      if (!password) return res.status(400).json({ error: "missing password" });
-      const { user } = await loginWithPassword(String(password));
+      const { username, password } = req.body || {};
+      if (!username || !password) {
+        return res.status(400).json({ error: "missing credentials" });
+      }
+      const { user } = await loginUser({ username: String(username), password: String(password) });
       const token = signSession({
         userId: user.id,
         email: user.email,
@@ -70,8 +73,35 @@ export async function registerRoutes(
         user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
       });
     } catch (err: any) {
-      const msg = err?.message || "auth failed";
-      const code = msg === "password auth not configured" ? 503 : 401;
+      res.status(401).json({ error: err?.message || "auth failed" });
+    }
+  });
+
+  // ---------- Auth: 회원가입 (초대코드 필요) ----------
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password, inviteCode } = req.body || {};
+      if (!username || !password || !inviteCode) {
+        return res.status(400).json({ error: "missing fields" });
+      }
+      const { user } = await registerUser({
+        username: String(username),
+        password: String(password),
+        inviteCode: String(inviteCode),
+      });
+      const token = signSession({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+      });
+      res.json({
+        token,
+        user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
+      });
+    } catch (err: any) {
+      const msg = err?.message || "register failed";
+      const code = msg === "signup is disabled" ? 503 : 400;
       res.status(code).json({ error: msg });
     }
   });

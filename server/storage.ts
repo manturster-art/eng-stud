@@ -43,6 +43,8 @@ sqlite.exec(`
     email TEXT NOT NULL,
     name TEXT NOT NULL DEFAULT '',
     picture TEXT NOT NULL DEFAULT '',
+    username TEXT,
+    password_hash TEXT,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS study_logs (
@@ -139,6 +141,9 @@ safeAlter("ALTER TABLE toeic_sentences ADD COLUMN user_id INTEGER NOT NULL DEFAU
 safeAlter("ALTER TABLE settings ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
 // 표현 학습 모듈 컬럼
 safeAlter("ALTER TABLE study_logs ADD COLUMN phrases_reviewed INTEGER NOT NULL DEFAULT 0");
+// 사용자명/비밀번호 인증 컬럼
+safeAlter("ALTER TABLE users ADD COLUMN username TEXT");
+safeAlter("ALTER TABLE users ADD COLUMN password_hash TEXT");
 
 // 인덱스
 function safeIndex(s: string) { try { sqlite.exec(s); } catch (_) {} }
@@ -147,10 +152,33 @@ safeIndex("CREATE INDEX IF NOT EXISTS idx_peppa_user ON peppa_episodes(user_id, 
 safeIndex("CREATE INDEX IF NOT EXISTS idx_toeic_user_no ON toeic_sentences(user_id, sentence_no)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_settings_user ON settings(user_id)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_phrases_user ON phrases(user_id, source, created_at)");
+safeIndex("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
+
+// 일회성 마이그레이션: 이전 ACCESS_PASSWORD 단일 사용자(user@local)의 데이터를
+// orphan(user_id=0)으로 옮기고 사용자 레코드 삭제. 첫 신규 가입자가 인수받음.
+// 안전장치: 다른 사용자가 이미 존재하면 마이그레이션 안 함 (다중 사용자 환경 보호).
+const LEGACY_GOOGLE_ID = "password-user-singleton";
+const legacyUser = sqlite.prepare("SELECT id FROM users WHERE google_id = ?").get(LEGACY_GOOGLE_ID) as { id: number } | undefined;
+if (legacyUser) {
+  const others = sqlite.prepare("SELECT COUNT(*) as c FROM users WHERE id != ?").get(legacyUser.id) as { c: number };
+  if (others.c === 0) {
+    const tx = sqlite.transaction(() => {
+      sqlite.prepare("UPDATE study_logs SET user_id = 0 WHERE user_id = ?").run(legacyUser.id);
+      sqlite.prepare("UPDATE peppa_episodes SET user_id = 0 WHERE user_id = ?").run(legacyUser.id);
+      sqlite.prepare("UPDATE toeic_sentences SET user_id = 0 WHERE user_id = ?").run(legacyUser.id);
+      sqlite.prepare("UPDATE settings SET user_id = 0 WHERE user_id = ?").run(legacyUser.id);
+      sqlite.prepare("UPDATE phrases SET user_id = 0 WHERE user_id = ?").run(legacyUser.id);
+      sqlite.prepare("DELETE FROM users WHERE id = ?").run(legacyUser.id);
+    });
+    tx();
+    console.log("[storage] migrated legacy single-password user data → orphan for re-assignment");
+  }
+}
 
 export interface IStorage {
   // users
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   countUsers(): Promise<number>;
   hasOrphanData(): Promise<boolean>;
@@ -196,6 +224,9 @@ export class DatabaseStorage implements IStorage {
   // ----- users -----
   async getUserByGoogleId(googleId: string) {
     return db.select().from(users).where(eq(users.googleId, googleId)).get();
+  }
+  async getUserByUsername(username: string) {
+    return db.select().from(users).where(eq(users.username, username)).get();
   }
   async createUser(user: InsertUser) {
     return db.insert(users).values(user).returning().get();

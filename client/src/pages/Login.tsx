@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -6,43 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Sparkles, BookOpen, Trophy, LogIn } from "lucide-react";
-
-declare global {
-  interface Window {
-    google?: any;
-  }
-}
-
-const GIS_SRC = "https://accounts.google.com/gsi/client";
-
-function loadGoogleScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.id) return resolve();
-    const existing = document.querySelector(`script[src="${GIS_SRC}"]`) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("GIS load failed")));
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = GIS_SRC;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("GIS load failed"));
-    document.head.appendChild(s);
-  });
-}
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { GraduationCap, Sparkles, BookOpen, Trophy, LogIn, UserPlus } from "lucide-react";
 
 export default function Login() {
-  const { loginWithGoogleCredential, loginWithPassword } = useAuth();
+  const { loginWithUsername, registerWithInvite } = useAuth();
   const { toast } = useToast();
-  const buttonRef = useRef<HTMLDivElement>(null);
 
-  const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(false);
-  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [signupEnabled, setSignupEnabled] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,67 +31,68 @@ export default function Login() {
         const cfgRes = await apiRequest("GET", "/api/auth/config");
         const cfg = await cfgRes.json();
         if (cancelled) return;
-
-        setPasswordAuthEnabled(Boolean(cfg.passwordAuthEnabled));
-
-        // Google은 ACCESS_PASSWORD가 설정되지 않은 경우에만 시도 (없으면 데모용 Client ID라 origin 등록 불가)
-        const tryGoogle = !cfg.passwordAuthEnabled && cfg.googleClientId;
-        if (!tryGoogle) return;
-
-        await loadGoogleScript();
-        if (cancelled) return;
-        if (!window.google?.accounts?.id) throw new Error("Google SDK 미로딩");
-        window.google.accounts.id.initialize({
-          client_id: cfg.googleClientId,
-          callback: async (response: any) => {
-            try {
-              await loginWithGoogleCredential(response.credential);
-              toast({ title: "환영합니다", description: "로그인되었습니다." });
-            } catch (e: any) {
-              setError(e?.message || "로그인 실패");
-              toast({ title: "로그인 실패", description: e?.message ?? "다시 시도해 주십시오.", variant: "destructive" });
-            }
-          },
-          ux_mode: "popup",
-          auto_select: false,
-        });
-        if (buttonRef.current) {
-          window.google.accounts.id.renderButton(buttonRef.current, {
-            theme: "outline",
-            size: "large",
-            type: "standard",
-            text: "signin_with",
-            shape: "rectangular",
-            logo_alignment: "left",
-            width: 320,
-          });
-        }
-        setGoogleEnabled(true);
-      } catch (e: any) {
-        // Google 초기화 실패는 비밀번호 인증이 활성화된 경우 무시
-        if (!passwordAuthEnabled) setError(e?.message || "초기화 실패");
+        setSignupEnabled(Boolean(cfg.signupEnabled));
+      } catch {
+        // config 실패해도 로그인은 시도 가능
+      } finally {
+        if (!cancelled) setConfigLoaded(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [loginWithGoogleCredential, toast, passwordAuthEnabled]);
+  }, []);
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) {
-      setError("비밀번호를 입력해 주세요.");
+    if (!username.trim() || !password) {
+      setError("사용자명과 비밀번호를 모두 입력해 주세요.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      await loginWithPassword(password);
+      await loginWithUsername(username.trim(), password);
       toast({ title: "환영합니다", description: "로그인되었습니다." });
     } catch (e: any) {
-      const msg = e?.message?.includes("401") ? "비밀번호가 올바르지 않습니다." : (e?.message || "로그인 실패");
+      const msg = e?.message?.includes("401") ? "사용자명 또는 비밀번호가 올바르지 않습니다." : (e?.message || "로그인 실패");
       setError(msg);
       toast({ title: "로그인 실패", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password || !inviteCode.trim()) {
+      setError("모든 항목을 입력해 주세요.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]{3,32}$/.test(username.trim())) {
+      setError("사용자명은 영문/숫자/-/_ 조합 3~32자여야 합니다.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("비밀번호는 6자 이상이어야 합니다.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await registerWithInvite(username.trim(), password, inviteCode.trim());
+      toast({ title: "환영합니다", description: "가입 후 자동 로그인되었습니다." });
+    } catch (e: any) {
+      const raw = e?.message || "";
+      let msg = "가입 실패";
+      if (raw.includes("invalid invite code")) msg = "초대코드가 올바르지 않습니다.";
+      else if (raw.includes("username already taken")) msg = "이미 사용 중인 사용자명입니다.";
+      else if (raw.includes("username must be")) msg = "사용자명 형식이 올바르지 않습니다 (영문/숫자/-/_ 3~32자).";
+      else if (raw.includes("password must be")) msg = "비밀번호는 6자 이상이어야 합니다.";
+      else if (raw.includes("signup is disabled")) msg = "신규 가입이 비활성화되어 있습니다.";
+      else if (raw) msg = raw;
+      setError(msg);
+      toast({ title: "가입 실패", description: msg, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -131,71 +110,128 @@ export default function Login() {
             8개월 맞춤 학습 계획에 오신 것을 환영합니다.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-5">
-            {passwordAuthEnabled && (
-              <form onSubmit={handlePasswordSubmit} className="w-full space-y-3" data-testid="form-password-login">
+        <CardContent className="pt-4">
+          <Tabs value={mode} onValueChange={(v) => { setMode(v as "login" | "register"); setError(null); }}>
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="login" data-testid="tab-login">로그인</TabsTrigger>
+              <TabsTrigger value="register" disabled={!signupEnabled} data-testid="tab-register">
+                회원가입
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="login" className="pt-4">
+              <form onSubmit={handleLogin} className="space-y-3" data-testid="form-login">
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs">접근 비밀번호</Label>
+                  <Label htmlFor="login-username" className="text-xs">사용자명</Label>
                   <Input
-                    id="password"
+                    id="login-username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                    placeholder="예: peppa"
+                    data-testid="input-login-username"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password" className="text-xs">비밀번호</Label>
+                  <Input
+                    id="login-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="비밀번호 입력"
-                    autoFocus
                     autoComplete="current-password"
-                    data-testid="input-password"
+                    placeholder="비밀번호"
+                    data-testid="input-login-password"
                   />
                 </div>
                 <Button
                   type="submit"
                   className="w-full gap-1.5"
                   disabled={submitting}
-                  data-testid="button-password-login"
+                  data-testid="button-login"
                 >
                   <LogIn className="size-4" />
                   {submitting ? "로그인 중..." : "로그인"}
                 </Button>
               </form>
-            )}
+            </TabsContent>
 
-            {googleEnabled && (
-              <>
-                {passwordAuthEnabled && (
-                  <div className="w-full flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <div className="flex-1 border-t" />
-                    또는
-                    <div className="flex-1 border-t" />
+            <TabsContent value="register" className="pt-4">
+              {!signupEnabled && configLoaded && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  신규 가입이 비활성화되어 있습니다. 관리자에게 초대를 요청해 주세요.
+                </p>
+              )}
+              {signupEnabled && (
+                <form onSubmit={handleRegister} className="space-y-3" data-testid="form-register">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reg-username" className="text-xs">사용자명</Label>
+                    <Input
+                      id="reg-username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoComplete="username"
+                      placeholder="영문/숫자/-/_ 3~32자"
+                      data-testid="input-reg-username"
+                    />
                   </div>
-                )}
-                <div ref={buttonRef} data-testid="button-google-signin" className="min-h-[44px] flex items-center justify-center" />
-              </>
-            )}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reg-password" className="text-xs">비밀번호</Label>
+                    <Input
+                      id="reg-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
+                      placeholder="6자 이상"
+                      data-testid="input-reg-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reg-invite" className="text-xs">초대코드</Label>
+                    <Input
+                      id="reg-invite"
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="관리자에게 받은 초대코드"
+                      data-testid="input-reg-invite"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full gap-1.5"
+                    disabled={submitting}
+                    data-testid="button-register"
+                  >
+                    <UserPlus className="size-4" />
+                    {submitting ? "가입 중..." : "가입하고 시작"}
+                  </Button>
+                </form>
+              )}
+            </TabsContent>
+          </Tabs>
 
-            {!passwordAuthEnabled && !googleEnabled && !error && (
-              <p className="text-xs text-muted-foreground">로그인 방법을 준비 중입니다...</p>
-            )}
+          {error && (
+            <p className="text-xs text-destructive text-center mt-3" data-testid="text-login-error">{error}</p>
+          )}
 
-            {error && (
-              <p className="text-xs text-destructive" data-testid="text-login-error">{error}</p>
-            )}
-
-            <div className="w-full pt-4 border-t border-border/60">
-              <p className="text-xs text-muted-foreground text-center mb-3">로그인 후 이용 가능한 기능</p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="flex flex-col items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  <span className="text-[11px] text-muted-foreground">학습 기록</span>
-                </div>
-                <div className="flex flex-col items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  <span className="text-[11px] text-muted-foreground">매일 퀴즈</span>
-                </div>
-                <div className="flex flex-col items-center gap-1.5">
-                  <Trophy className="w-4 h-4 text-primary" />
-                  <span className="text-[11px] text-muted-foreground">목표 추적</span>
-                </div>
+          <div className="w-full pt-5 mt-4 border-t border-border/60">
+            <p className="text-xs text-muted-foreground text-center mb-3">로그인 후 이용 가능한 기능</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="flex flex-col items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-primary" />
+                <span className="text-[11px] text-muted-foreground">학습 기록</span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-[11px] text-muted-foreground">매일 퀴즈</span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-primary" />
+                <span className="text-[11px] text-muted-foreground">목표 추적</span>
               </div>
             </div>
           </div>

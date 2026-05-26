@@ -25,33 +25,35 @@ SQLite는 영구 디스크가 필요하므로 Vercel 같은 서버리스 플랫�
 
 | 변수 | 값 | 비고 |
 |------|-----|------|
-| `ACCESS_PASSWORD` | 원하는 비밀번호 (예: 12자 이상 랜덤) | **권장 인증 방식**. 설정하면 비밀번호 로그인 활성화, Google OAuth 비활성화 |
+| `INVITE_CODE` | 본인이 정한 초대코드 (예: `peppa-invite-2026`) | 가입 게이팅. 친구/가족에게 URL과 함께 공유 |
 | `JWT_SECRET` | `openssl rand -hex 48` 로 생성한 긴 랜덤 문자열 | 필수 (운영에서 기본값 사용 금지) |
 | `DATABASE_PATH` | `/data/data.db` | 볼륨 마운트 경로와 일치 |
-| `NODE_ENV` | `production` | Railway가 보통 자동 주입하지만 안전하게 명시 |
 
-`PORT`는 Railway가 자동 주입하므로 **설정하지 말 것**.
+> `NODE_ENV`는 **설정하지 말 것** — start 스크립트가 인라인으로 production을 설정함. 빌드 시 dev deps 누락 방지.
+> `PORT`도 Railway가 자동 주입하므로 **설정하지 말 것**.
 
 ## 4) 로그인 방식
 
-### 4-A) 비밀번호 로그인 (기본, 권장)
+### 사용자명+비밀번호 (기본)
 
-`ACCESS_PASSWORD` 환경변수만 설정하면 끝. Login 화면에 비밀번호 입력 폼이
-표시되고, 입력한 비밀번호가 일치하면 단일 사용자(`user@local`)로 자동 로그인.
-본인 학습 대시보드용으로 충분하며 Google Console 설정 불필요.
+각 사용자는 본인이 정한 사용자명+비밀번호로 가입·로그인하며, 모든 데이터는
+사용자별로 분리됩니다.
 
-### 4-B) Google OAuth (선택, 다중 사용자 필요 시)
+**가입 흐름:**
+1. URL 접속 → "회원가입" 탭
+2. 사용자명(영문/숫자/-/_ 3~32자) + 비밀번호(6자 이상) + 초대코드 입력
+3. 자동 로그인 → 본인 대시보드 진입
 
-`ACCESS_PASSWORD` 미설정 + 본인 Google Client ID 발급 필요.
+**가입 닫기:** Variables에서 `INVITE_CODE` 제거 → 로그인 탭만 노출되고 "회원가입" 탭은 비활성화.
 
-1. https://console.cloud.google.com/apis/credentials 접속
-2. **+ CREATE CREDENTIALS** → **OAuth client ID**
-3. Application type: **Web application**
-4. **Authorized JavaScript origins** 에 Railway URL 추가 (예: `https://eng-stud-production.up.railway.app`)
-5. 발급된 Client ID를 Railway Variables에 `GOOGLE_CLIENT_ID` 로 추가
+**첫 사용자 (관리자) 데이터 인수:** 만약 이전에 ACCESS_PASSWORD 기반 단일 사용자로
+데이터를 만들었다면, 첫 신규 가입자가 자동으로 그 데이터를 인수받습니다.
+(부팅 시 일회성 마이그레이션이 실행됨)
 
-> 코드에 박힌 기본 Client ID(`server/auth.ts:9`)는 데모용이며 본인이 Authorized
-> origins를 수정할 수 없으므로 운영에서는 본인 Client ID가 반드시 필요합니다.
+### Google OAuth (선택, 더 이상 권장 안 함)
+
+코드에는 남아있지만 UI에서는 노출 안 됨. 활성화하려면 본인 Google Client ID
+발급 + `GOOGLE_CLIENT_ID` 변수 설정 + Login.tsx 수정 필요.
 
 ## 5) 첫 배포 확인
 

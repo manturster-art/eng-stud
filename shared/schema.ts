@@ -2,13 +2,15 @@ import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// 사용자 (Google OAuth)
+// 사용자 (Google OAuth 또는 사용자명+비밀번호)
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   googleId: text("google_id").notNull().unique(),
   email: text("email").notNull(),
   name: text("name").notNull().default(""),
   picture: text("picture").notNull().default(""),
+  username: text("username"),
+  passwordHash: text("password_hash"),
   createdAt: text("created_at").notNull(),
 });
 
