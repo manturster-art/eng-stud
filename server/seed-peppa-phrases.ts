@@ -58,4 +58,54 @@ export const peppaPhrasesSeed: SeedPeppaPhrase[] = [
   { season: 1, episode: 10, phraseEn: "Let's plant some seeds", phraseKo: "씨앗을 좀 심어 봐요", category: "request" },
   { season: 1, episode: 10, phraseEn: "It's growing already", phraseKo: "벌써 자라고 있어요", category: "feeling" },
   { season: 1, episode: 10, phraseEn: "Water the plants", phraseKo: "식물에 물을 주세요", category: "daily" },
+
+  // S2E1 Bubbles — 비눗방울 불기
+  { season: 2, episode: 1, phraseEn: "Look at the bubbles", phraseKo: "비눗방울 좀 보세요", category: "daily" },
+  { season: 2, episode: 1, phraseEn: "Can I have a go", phraseKo: "저도 한번 해봐도 돼요?", category: "request" },
+  { season: 2, episode: 1, phraseEn: "Blow gently like this", phraseKo: "이렇게 살살 불어 보세요", category: "request" },
+
+  // S2E2 Teddy's Day Out — 테디 잃어버림
+  { season: 2, episode: 2, phraseEn: "I want my teddy", phraseKo: "내 곰인형 줘요", category: "request" },
+  { season: 2, episode: 2, phraseEn: "We have to go back", phraseKo: "다시 돌아가야 해요", category: "daily" },
+  { season: 2, episode: 2, phraseEn: "Please don't cry", phraseKo: "울지 마세요", category: "feeling" },
+
+  // S2E3 Mister Skinnylegs — 거미 무서움
+  { season: 2, episode: 3, phraseEn: "He won't hurt you", phraseKo: "얘는 안 물어요", category: "daily" },
+  { season: 2, episode: 3, phraseEn: "There's nothing to be afraid of", phraseKo: "무서워할 거 없어요", category: "feeling" },
+  { season: 2, episode: 3, phraseEn: "Would you like some tea", phraseKo: "차 한 잔 드릴까요?", category: "request" },
+
+  // S2E4 Camping — 텐트치기
+  { season: 2, episode: 4, phraseEn: "Let's put up the tent", phraseKo: "텐트를 세워 봐요", category: "request" },
+  { season: 2, episode: 4, phraseEn: "It's getting dark", phraseKo: "어두워지고 있어요", category: "daily" },
+  { season: 2, episode: 4, phraseEn: "Goodnight everyone", phraseKo: "다들 잘 자요", category: "greeting" },
+
+  // S2E5 The Sleepover — 친구 집에서 자기
+  { season: 2, episode: 5, phraseEn: "Thank you for having me", phraseKo: "초대해 주셔서 감사해요", category: "greeting" },
+  { season: 2, episode: 5, phraseEn: "I miss my mummy", phraseKo: "엄마가 보고 싶어요", category: "feeling" },
+  { season: 2, episode: 5, phraseEn: "Lights off please", phraseKo: "불 꺼 주세요", category: "request" },
+
+  // S2E6 Frogs and Worms and Butterflies — 벌레·개구리
+  { season: 2, episode: 6, phraseEn: "What's that over there", phraseKo: "저기 저게 뭐예요?", category: "daily" },
+  { season: 2, episode: 6, phraseEn: "It's so pretty", phraseKo: "정말 예뻐요", category: "feeling" },
+  { season: 2, episode: 6, phraseEn: "Be careful with it", phraseKo: "조심해서 다뤄요", category: "request" },
+
+  // S2E7 The Tree House — 나무집 짓기
+  { season: 2, episode: 7, phraseEn: "Can I come up", phraseKo: "올라가도 돼요?", category: "request" },
+  { season: 2, episode: 7, phraseEn: "Hold on tight", phraseKo: "꽉 잡으세요", category: "request" },
+  { season: 2, episode: 7, phraseEn: "This is so cool", phraseKo: "이거 진짜 멋져요", category: "feeling" },
+
+  // S2E8 The Camper Van — 캠핑카 여행
+  { season: 2, episode: 8, phraseEn: "Are we there yet", phraseKo: "아직 멀었어요?", category: "daily" },
+  { season: 2, episode: 8, phraseEn: "Hop in everyone", phraseKo: "다들 어서 타세요", category: "request" },
+  { season: 2, episode: 8, phraseEn: "What a great idea", phraseKo: "정말 좋은 생각이에요", category: "agreement" },
+
+  // S2E9 School Bus Trip — 학교 견학·산
+  { season: 2, episode: 9, phraseEn: "Sit down please", phraseKo: "자리에 앉아 주세요", category: "request" },
+  { season: 2, episode: 9, phraseEn: "We're nearly at the top", phraseKo: "거의 다 올라왔어요", category: "daily" },
+  { season: 2, episode: 9, phraseEn: "I'm a bit tired", phraseKo: "조금 피곤해요", category: "feeling" },
+
+  // S2E10 Rock Pools — 해변 바위 웅덩이
+  { season: 2, episode: 10, phraseEn: "Look what I found", phraseKo: "이거 봐요, 뭐 찾았어요", category: "daily" },
+  { season: 2, episode: 10, phraseEn: "Watch your step", phraseKo: "발 밑 조심하세요", category: "request" },
+  { season: 2, episode: 10, phraseEn: "Let's have a look", phraseKo: "한번 봐 봐요", category: "request" },
 ];
