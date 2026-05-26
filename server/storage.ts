@@ -23,8 +23,13 @@ import type {
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, and, asc, desc, sql } from "drizzle-orm";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 const DB_PATH = process.env.DATABASE_PATH || "data.db";
+// 모듈 로드 시점에 부모 디렉토리가 없으면 better-sqlite3가 즉시 throw → 앱 크래시 루프.
+// 영구 볼륨(/data 등) 첫 부팅 시 디렉토리만 존재하고 비어있는 케이스 + 로컬 첫 실행 모두 안전.
+mkdirSync(dirname(DB_PATH), { recursive: true });
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
 
