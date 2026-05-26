@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
+import { timingSafeEqual } from "node:crypto";
 import { storage } from "./storage";
 import { peppaSeed } from "./seed-peppa";
 import { toeicSeed } from "./seed-toeic";
@@ -14,7 +15,14 @@ export const GOOGLE_CLIENT_ID =
 const JWT_SECRET =
   process.env.JWT_SECRET || "eng-dashboard-secret-2026-please-change";
 
+export const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "";
+export const PASSWORD_AUTH_ENABLED = ACCESS_PASSWORD.length > 0;
+
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+const PASSWORD_USER_GOOGLE_ID = "password-user-singleton";
+const PASSWORD_USER_EMAIL = "user@local";
+const PASSWORD_USER_NAME = "사용자";
 
 export interface AuthPayload {
   userId: number;
@@ -85,6 +93,37 @@ export async function loginOrRegisterUser(googleProfile: {
       await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
     } else {
       // 그 외 사용자는 새 시드 데이터 생성
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+    }
+  }
+  return { user, isFirstUser };
+}
+
+export async function loginWithPassword(password: string) {
+  if (!PASSWORD_AUTH_ENABLED) {
+    throw new Error("password auth not configured");
+  }
+  const a = Buffer.from(password);
+  const b = Buffer.from(ACCESS_PASSWORD);
+  const ok = a.length === b.length && timingSafeEqual(a, b);
+  if (!ok) throw new Error("invalid password");
+
+  let user = await storage.getUserByGoogleId(PASSWORD_USER_GOOGLE_ID);
+  let isFirstUser = false;
+  if (!user) {
+    const userCount = await storage.countUsers();
+    isFirstUser = userCount === 0;
+    user = await storage.createUser({
+      googleId: PASSWORD_USER_GOOGLE_ID,
+      email: PASSWORD_USER_EMAIL,
+      name: PASSWORD_USER_NAME,
+      picture: "",
+      createdAt: new Date().toISOString(),
+    });
+    if (isFirstUser && (await storage.hasOrphanData())) {
+      await storage.reassignOrphanData(user.id);
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+    } else {
       await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
     }
   }

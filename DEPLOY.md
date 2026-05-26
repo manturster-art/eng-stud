@@ -25,26 +25,33 @@ SQLite는 영구 디스크가 필요하므로 Vercel 같은 서버리스 플랫�
 
 | 변수 | 값 | 비고 |
 |------|-----|------|
+| `ACCESS_PASSWORD` | 원하는 비밀번호 (예: 12자 이상 랜덤) | **권장 인증 방식**. 설정하면 비밀번호 로그인 활성화, Google OAuth 비활성화 |
 | `JWT_SECRET` | `openssl rand -hex 48` 로 생성한 긴 랜덤 문자열 | 필수 (운영에서 기본값 사용 금지) |
 | `DATABASE_PATH` | `/data/data.db` | 볼륨 마운트 경로와 일치 |
-| `GOOGLE_CLIENT_ID` | 본인 Google OAuth Client ID | 데모 기본값 사용해도 동작은 함, 운영용은 본인 ID 권장 |
 | `NODE_ENV` | `production` | Railway가 보통 자동 주입하지만 안전하게 명시 |
 
 `PORT`는 Railway가 자동 주입하므로 **설정하지 말 것**.
 
-## 4) Google OAuth 도메인 등록
+## 4) 로그인 방식
 
-배포 후 Railway가 발급한 URL(예: `https://eng-stud-production.up.railway.app`)을
-Google Cloud Console에서 추가해야 로그인이 동작합니다.
+### 4-A) 비밀번호 로그인 (기본, 권장)
 
-1. https://console.cloud.google.com/apis/credentials
-2. 사용 중인 OAuth 2.0 Client ID 클릭
-3. **Authorized JavaScript origins** 에 Railway URL 추가
-4. (필요 시) **Authorized redirect URIs** 도 동일 URL 추가
-5. 저장 → 반영까지 몇 분 소요될 수 있음
+`ACCESS_PASSWORD` 환경변수만 설정하면 끝. Login 화면에 비밀번호 입력 폼이
+표시되고, 입력한 비밀번호가 일치하면 단일 사용자(`user@local`)로 자동 로그인.
+본인 학습 대시보드용으로 충분하며 Google Console 설정 불필요.
 
-> 본인 Client ID를 따로 안 만들고 코드 기본값(`server/auth.ts:9`)을 그대로 쓰면
-> Authorized origins에 도메인 추가가 불가능하므로 운영에서는 본인 Client ID 발급 권장.
+### 4-B) Google OAuth (선택, 다중 사용자 필요 시)
+
+`ACCESS_PASSWORD` 미설정 + 본인 Google Client ID 발급 필요.
+
+1. https://console.cloud.google.com/apis/credentials 접속
+2. **+ CREATE CREDENTIALS** → **OAuth client ID**
+3. Application type: **Web application**
+4. **Authorized JavaScript origins** 에 Railway URL 추가 (예: `https://eng-stud-production.up.railway.app`)
+5. 발급된 Client ID를 Railway Variables에 `GOOGLE_CLIENT_ID` 로 추가
+
+> 코드에 박힌 기본 Client ID(`server/auth.ts:9`)는 데모용이며 본인이 Authorized
+> origins를 수정할 수 없으므로 운영에서는 본인 Client ID가 반드시 필요합니다.
 
 ## 5) 첫 배포 확인
 

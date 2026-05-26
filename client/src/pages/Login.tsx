@@ -3,7 +3,10 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { GraduationCap, Sparkles, BookOpen, Trophy } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { GraduationCap, Sparkles, BookOpen, Trophy, LogIn } from "lucide-react";
 
 declare global {
   interface Window {
@@ -33,10 +36,14 @@ function loadGoogleScript(): Promise<void> {
 }
 
 export default function Login() {
-  const { loginWithGoogleCredential } = useAuth();
+  const { loginWithGoogleCredential, loginWithPassword } = useAuth();
   const { toast } = useToast();
   const buttonRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
+
+  const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +52,14 @@ export default function Login() {
       try {
         const cfgRes = await apiRequest("GET", "/api/auth/config");
         const cfg = await cfgRes.json();
+        if (cancelled) return;
+
+        setPasswordAuthEnabled(Boolean(cfg.passwordAuthEnabled));
+
+        // Google은 ACCESS_PASSWORD가 설정되지 않은 경우에만 시도 (없으면 데모용 Client ID라 origin 등록 불가)
+        const tryGoogle = !cfg.passwordAuthEnabled && cfg.googleClientId;
+        if (!tryGoogle) return;
+
         await loadGoogleScript();
         if (cancelled) return;
         if (!window.google?.accounts?.id) throw new Error("Google SDK 미로딩");
@@ -73,15 +88,36 @@ export default function Login() {
             width: 320,
           });
         }
-        setReady(true);
+        setGoogleEnabled(true);
       } catch (e: any) {
-        setError(e?.message || "초기화 실패");
+        // Google 초기화 실패는 비밀번호 인증이 활성화된 경우 무시
+        if (!passwordAuthEnabled) setError(e?.message || "초기화 실패");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [loginWithGoogleCredential, toast]);
+  }, [loginWithGoogleCredential, toast, passwordAuthEnabled]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) {
+      setError("비밀번호를 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await loginWithPassword(password);
+      toast({ title: "환영합니다", description: "로그인되었습니다." });
+    } catch (e: any) {
+      const msg = e?.message?.includes("401") ? "비밀번호가 올바르지 않습니다." : (e?.message || "로그인 실패");
+      setError(msg);
+      toast({ title: "로그인 실패", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-6">
@@ -93,15 +129,54 @@ export default function Login() {
           <CardTitle className="text-xl font-bold">영어 학습 대시보드</CardTitle>
           <CardDescription className="text-sm leading-relaxed">
             8개월 맞춤 학습 계획에 오신 것을 환영합니다.
-            <br />구글 계정으로 로그인하시면 개인별 학습 기록이 안전하게 보관됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col items-center gap-5">
-            <div ref={buttonRef} data-testid="button-google-signin" className="min-h-[44px] flex items-center justify-center" />
-            {!ready && !error && (
-              <p className="text-xs text-muted-foreground">로그인 버튼을 준비 중입니다...</p>
+            {passwordAuthEnabled && (
+              <form onSubmit={handlePasswordSubmit} className="w-full space-y-3" data-testid="form-password-login">
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-xs">접근 비밀번호</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="비밀번호 입력"
+                    autoFocus
+                    autoComplete="current-password"
+                    data-testid="input-password"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full gap-1.5"
+                  disabled={submitting}
+                  data-testid="button-password-login"
+                >
+                  <LogIn className="size-4" />
+                  {submitting ? "로그인 중..." : "로그인"}
+                </Button>
+              </form>
             )}
+
+            {googleEnabled && (
+              <>
+                {passwordAuthEnabled && (
+                  <div className="w-full flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex-1 border-t" />
+                    또는
+                    <div className="flex-1 border-t" />
+                  </div>
+                )}
+                <div ref={buttonRef} data-testid="button-google-signin" className="min-h-[44px] flex items-center justify-center" />
+              </>
+            )}
+
+            {!passwordAuthEnabled && !googleEnabled && !error && (
+              <p className="text-xs text-muted-foreground">로그인 방법을 준비 중입니다...</p>
+            )}
+
             {error && (
               <p className="text-xs text-destructive" data-testid="text-login-error">{error}</p>
             )}

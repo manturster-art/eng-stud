@@ -10,7 +10,9 @@ import {
 } from "@shared/schema";
 import {
   GOOGLE_CLIENT_ID,
+  PASSWORD_AUTH_ENABLED,
   loginOrRegisterUser,
+  loginWithPassword,
   requireAuth,
   signSession,
   verifyGoogleIdToken,
@@ -20,9 +22,12 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // ---------- Public: 클라이언트가 OAuth 클라이언트 ID를 가져옴 ----------
+  // ---------- Public: 활성 인증 방식 광고 ----------
   app.get("/api/auth/config", (_req, res) => {
-    res.json({ googleClientId: GOOGLE_CLIENT_ID });
+    res.json({
+      googleClientId: GOOGLE_CLIENT_ID,
+      passwordAuthEnabled: PASSWORD_AUTH_ENABLED,
+    });
   });
 
   // ---------- Auth: Google 로그인 ----------
@@ -45,6 +50,29 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("auth error", err);
       res.status(401).json({ error: "auth failed", detail: err?.message });
+    }
+  });
+
+  // ---------- Auth: 비밀번호 로그인 (단일 사용자) ----------
+  app.post("/api/auth/password", async (req, res) => {
+    try {
+      const { password } = req.body || {};
+      if (!password) return res.status(400).json({ error: "missing password" });
+      const { user } = await loginWithPassword(String(password));
+      const token = signSession({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+      });
+      res.json({
+        token,
+        user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
+      });
+    } catch (err: any) {
+      const msg = err?.message || "auth failed";
+      const code = msg === "password auth not configured" ? 503 : 401;
+      res.status(code).json({ error: msg });
     }
   });
 

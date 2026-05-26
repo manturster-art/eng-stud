@@ -12,6 +12,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   loginWithGoogleCredential: (credential: string) => Promise<void>;
+  loginWithPassword: (password: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -61,6 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, []);
 
+  const loginWithPassword = useCallback(async (password: string) => {
+    const res = await apiRequest("POST", "/api/auth/password", { password });
+    const data = await res.json();
+    setAuthToken(data.token);
+    setUser(data.user);
+    queryClient.clear();
+  }, []);
+
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
@@ -68,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogleCredential, logout }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogleCredential, loginWithPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );
