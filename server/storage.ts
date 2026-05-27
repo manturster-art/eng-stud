@@ -32,6 +32,21 @@ import { peppaPhrasesSeed } from "./seed-peppa-phrases";
 import { friendsPhrasesSeed } from "./seed-friends-phrases";
 
 const DB_PATH = process.env.DATABASE_PATH || "data.db";
+
+// 운영 환경에서 DATABASE_PATH 누락 = 데이터 휘발 함정. 매우 큰 경고 출력.
+// (부팅은 계속 — DB가 실제 동작하지 않으면 사이트 다운이 아니라 로그 첫 줄로 즉시 인지 가능하게)
+if (process.env.NODE_ENV === "production" && !process.env.DATABASE_PATH) {
+  console.error("");
+  console.error("==========================================================================");
+  console.error("⚠️  WARNING: DATABASE_PATH 환경변수가 설정되지 않았습니다.");
+  console.error("⚠️  현재 SQLite 파일이 컨테이너 작업 디렉토리에 저장됩니다 (휘발성).");
+  console.error("⚠️  재배포·재시작 시 모든 사용자 데이터가 사라집니다.");
+  console.error("⚠️  → Railway Variables에 DATABASE_PATH=/data/data.db 를 추가하세요.");
+  console.error("⚠️  → Volume Mount Path가 /data 와 일치해야 합니다.");
+  console.error("==========================================================================");
+  console.error("");
+}
+
 // 모듈 로드 시점에 부모 디렉토리가 없으면 better-sqlite3가 즉시 throw → 앱 크래시 루프.
 // 영구 볼륨(/data 등) 첫 부팅 시 디렉토리만 존재하고 비어있는 케이스 + 로컬 첫 실행 모두 안전.
 mkdirSync(dirname(DB_PATH), { recursive: true });
