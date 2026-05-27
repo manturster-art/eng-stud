@@ -25,6 +25,7 @@ import Database from "better-sqlite3";
 import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { friendsPhrasesSeed } from "./seed-friends-phrases";
 
 const DB_PATH = process.env.DATABASE_PATH || "data.db";
 // 모듈 로드 시점에 부모 디렉토리가 없으면 better-sqlite3가 즉시 throw → 앱 크래시 루프.
@@ -172,6 +173,30 @@ if (legacyUser) {
     });
     tx();
     console.log("[storage] migrated legacy single-password user data → orphan for re-assignment");
+  }
+}
+
+// 시드 백필: seedUserData는 phrases가 0개일 때만 INSERT하므로 신규 시드가 추가될
+// 때마다 기존 사용자는 받지 못함. 부팅 시 idempotent하게 source별로 누락된 시드를
+// 채워준다. 한 번 들어간 source는 다시 들어가지 않으므로 매 부팅이 안전.
+{
+  const allUsers = sqlite.prepare("SELECT id FROM users WHERE id != 0").all() as { id: number }[];
+  const checkFriends = sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'friends'");
+  const insertFriends = sqlite.prepare(
+    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
+  );
+  const nowIso = new Date().toISOString();
+  for (const u of allUsers) {
+    const has = (checkFriends.get(u.id) as { c: number }).c > 0;
+    if (has) continue;
+    const tx = sqlite.transaction(() => {
+      for (const p of friendsPhrasesSeed) {
+        const label = `Friends S1E${String(p.episode).padStart(2, "0")} ${p.episodeTitle}`;
+        insertFriends.run(u.id, p.phraseEn, p.phraseKo, label, p.category, nowIso);
+      }
+    });
+    tx();
+    console.log(`[storage] backfilled ${friendsPhrasesSeed.length} Friends phrases for user ${u.id}`);
   }
 }
 
