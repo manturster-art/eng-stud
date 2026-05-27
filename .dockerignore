@@ -1,0 +1,42 @@
+# Docker 빌드 컨텍스트에서 제외할 파일·디렉토리
+# 빌드 속도 + 이미지 크기 + 보안에 영향
+
+# 의존성·빌드 산출물 (컨테이너 내부에서 재생성)
+node_modules
+dist
+.vite
+
+# SQLite 데이터 (절대 이미지에 들어가면 안 됨)
+data.db
+data.db-shm
+data.db-wal
+data.db-journal
+
+# 환경 변수 (시크릿)
+.env
+.env.*
+!.env.example
+
+# 개발 도구 산출물
+*.log
+.DS_Store
+
+# 하네스 중간 산출물
+_workspace
+_workspace_prev
+
+# Git
+.git
+.gitignore
+.github
+
+# 에디터·CI
+.vscode
+.idea
+.claude
+
+# 배포 가이드 (이미지에 불필요)
+DEPLOY.md
+ORACLE_DEPLOY.md
+README.md
+CLAUDE.md
