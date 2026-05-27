@@ -20,11 +20,13 @@ const SOURCE_LABEL: Record<string, string> = {
   seed: "기본",
   peppa: "Peppa",
   toeic: "TOEIC",
+  friends: "Friends",
 };
 const SOURCE_TONE: Record<string, string> = {
   seed: "bg-muted text-muted-foreground",
   peppa: "bg-pink-500/15 text-pink-700 dark:text-pink-400",
   toeic: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  friends: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
 };
 
 export default function PhrasesPage() {
@@ -142,12 +144,13 @@ export default function PhrasesPage() {
         </CardContent>
       </Card>
 
-      <div>
+      <div className="overflow-x-auto -mx-1 px-1">
         <Tabs value={source} onValueChange={setSource}>
           <TabsList>
             <TabsTrigger value="all" data-testid="tab-source-all">전체</TabsTrigger>
             <TabsTrigger value="seed" data-testid="tab-source-seed">기본</TabsTrigger>
             <TabsTrigger value="peppa" data-testid="tab-source-peppa">Peppa</TabsTrigger>
+            <TabsTrigger value="friends" data-testid="tab-source-friends">Friends</TabsTrigger>
             <TabsTrigger value="toeic" data-testid="tab-source-toeic">TOEIC</TabsTrigger>
             <TabsTrigger value="bookmarked" data-testid="tab-source-bookmark">북마크</TabsTrigger>
           </TabsList>
@@ -196,7 +199,11 @@ export default function PhrasesPage() {
                     {SOURCE_LABEL[p.source] || p.source}
                   </span>
                   {p.sourceLabel && (
-                    <Badge variant="outline" className="text-[10px] font-normal">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-normal max-w-[180px] sm:max-w-[260px] truncate"
+                      title={p.sourceLabel}
+                    >
                       {p.sourceLabel}
                     </Badge>
                   )}

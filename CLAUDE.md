@@ -18,3 +18,4 @@
 | 2026-05-25 | 초기 하네스 구성 | 전체 | feature/content/review 3에이전트 파이프라인 신규 |
 | 2026-05-25 | design-reviewer 추가 | agents/design-reviewer.md, skills/review-design, orchestrator | UX·디자인 검증 영역 분리, module-reviewer와 병렬 실행 |
 | 2026-05-26 | Peppa S2 E1~E10 표현 30개 시드 추가 | server/seed-peppa-phrases.ts | curator → reviewer 파이프라인 1차 가동, 중복 0건, npm run check 통과 |
+| 2026-05-26 | Friends S1 E1~E10 표현 40개 시드 + UI 통합 | server/seed-friends-phrases.ts, storage.ts, auth.ts, Phrases.tsx, schema.ts | 성인 일상 회화 컨텐츠 확장. curator → module/design-reviewer 병렬, rose 톤 채택, sourceLabel truncate + Tabs 가로 스크롤 자동 수정 |

@@ -188,7 +188,8 @@ export interface IStorage {
     peppaSeed: any[],
     toeicSeed: any[],
     phrasesSeed: any[],
-    peppaPhrasesSeed: any[]
+    peppaPhrasesSeed: any[],
+    friendsPhrasesSeed: any[]
   ): Promise<void>;
 
   // study logs
@@ -256,7 +257,8 @@ export class DatabaseStorage implements IStorage {
     peppaSeed: any[],
     toeicSeed: any[],
     phrasesSeedData: any[] = [],
-    peppaPhrasesSeedData: any[] = []
+    peppaPhrasesSeedData: any[] = [],
+    friendsPhrasesSeedData: any[] = []
   ) {
     const peppaCount = sqlite.prepare("SELECT COUNT(*) as c FROM peppa_episodes WHERE user_id = ?").get(userId) as { c: number };
     if (peppaCount.c === 0) {
@@ -299,6 +301,9 @@ export class DatabaseStorage implements IStorage {
       const insertPeppa = sqlite.prepare(
         "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
       );
+      const insertFriends = sqlite.prepare(
+        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
+      );
       const seedTx = sqlite.transaction(() => {
         for (const p of phrasesSeedData) {
           insertSeed.run(userId, p.phraseEn, p.phraseKo, p.category, nowIso);
@@ -312,6 +317,11 @@ export class DatabaseStorage implements IStorage {
           if (!ep) continue;
           const label = `Peppa S${p.season}E${String(p.episode).padStart(2, "0")} ${ep.title_en}`;
           insertPeppa.run(userId, p.phraseEn, p.phraseKo, ep.id, label, p.category, nowIso);
+        }
+        // Friends 시드 (전용 에피소드 테이블 없음, sourceRefId=NULL, sourceLabel에 에피소드 정보 직접 인코딩)
+        for (const p of friendsPhrasesSeedData) {
+          const label = `Friends S1E${String(p.episode).padStart(2, "0")} ${p.episodeTitle}`;
+          insertFriends.run(userId, p.phraseEn, p.phraseKo, label, p.category, nowIso);
         }
       });
       seedTx();

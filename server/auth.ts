@@ -7,6 +7,7 @@ import { peppaSeed } from "./seed-peppa";
 import { toeicSeed } from "./seed-toeic";
 import { phrasesSeed } from "./seed-phrases";
 import { peppaPhrasesSeed } from "./seed-peppa-phrases";
+import { friendsPhrasesSeed } from "./seed-friends-phrases";
 
 export const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
@@ -88,9 +89,9 @@ export async function loginOrRegisterUser(googleProfile: {
 
     if (isFirstUser && (await storage.hasOrphanData())) {
       await storage.reassignOrphanData(user.id);
-      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed, friendsPhrasesSeed);
     } else {
-      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+      await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed, friendsPhrasesSeed);
     }
   }
   return { user, isFirstUser };
@@ -131,9 +132,9 @@ export async function registerUser(input: {
 
   if (isFirstUser && (await storage.hasOrphanData())) {
     await storage.reassignOrphanData(user.id);
-    await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+    await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed, friendsPhrasesSeed);
   } else {
-    await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed);
+    await storage.seedUserData(user.id, peppaSeed, toeicSeed, phrasesSeed, peppaPhrasesSeed, friendsPhrasesSeed);
   }
 
   return { user, isFirstUser };

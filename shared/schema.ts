@@ -105,7 +105,7 @@ export const phrases = sqliteTable("phrases", {
   userId: integer("user_id").notNull(),
   phraseEn: text("phrase_en").notNull(),
   phraseKo: text("phrase_ko").notNull().default(""),
-  source: text("source").notNull().default("seed"), // 'seed' | 'peppa' | 'toeic'
+  source: text("source").notNull().default("seed"), // 'seed' | 'peppa' | 'toeic' | 'friends'
   sourceRefId: integer("source_ref_id"),
   sourceLabel: text("source_label").notNull().default(""),
   category: text("category").notNull().default("daily"),
