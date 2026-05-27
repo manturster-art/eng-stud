@@ -45,6 +45,7 @@ function StatCard({
   hint,
   tone = "primary",
   testId,
+  href,
 }: {
   label: string;
   value: string | number;
@@ -53,6 +54,7 @@ function StatCard({
   hint?: string;
   tone?: "primary" | "amber" | "blue" | "purple";
   testId?: string;
+  href?: string;
 }) {
   const toneClass = {
     primary: "bg-primary/10 text-primary",
@@ -61,8 +63,8 @@ function StatCard({
     purple: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
   }[tone];
 
-  return (
-    <Card data-testid={testId} className="overflow-hidden">
+  const inner = (
+    <Card data-testid={testId} className={`overflow-hidden ${href ? "hover-elevate active-elevate-2 cursor-pointer" : ""}`}>
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -80,6 +82,8 @@ function StatCard({
       </CardContent>
     </Card>
   );
+
+  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 export default function Dashboard() {
@@ -121,6 +125,16 @@ export default function Dashboard() {
   const dueQuizCount = getDueQuizSentences(toeic, 999).length;
   const lastWeek = lastWeekSummary(logs, settings);
 
+  // 오늘 시청 추천: 진행 중(watching) 우선, 없으면 다음 pending 첫 화. 모두 mastered면 null.
+  const nextPeppa = (() => {
+    const sorted = [...peppa].sort((a, b) =>
+      a.season - b.season || a.episode - b.episode
+    );
+    return sorted.find((e) => e.status === "watching")
+      ?? sorted.find((e) => e.status === "pending")
+      ?? null;
+  })();
+
   return (
     <div className="px-5 sm:px-8 py-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -160,32 +174,66 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* 오늘의 액션 — 학습 시작 신호. dueQuizCount > 0 일 때만 강조 노출 */}
-          {dueQuizCount > 0 && (
-            <Card className="bg-primary/5 border-primary/40" data-testid="card-today-action">
-              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <Brain className="size-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      오늘 복습할 문장 <span className="tabular text-primary">{dueQuizCount}</span>개
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      SRS 망각곡선에 따라 재점검이 대기 중입니다.
-                    </p>
-                  </div>
-                </div>
-                <Link
-                  href="/quiz"
-                  data-testid="link-today-quiz"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover-elevate active-elevate-2"
-                >
-                  지금 시작 <ArrowRight className="size-3.5" />
-                </Link>
-              </CardContent>
-            </Card>
+          {/* 오늘의 액션 — 학습 시작 신호. 퀴즈/페파 둘 중 하나라도 있으면 노출 */}
+          {(dueQuizCount > 0 || nextPeppa) && (
+            <div className="grid lg:grid-cols-2 gap-3">
+              {dueQuizCount > 0 && (
+                <Card className="bg-primary/5 border-primary/40" data-testid="card-today-quiz">
+                  <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                        <Brain className="size-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">
+                          오늘 복습할 문장 <span className="tabular text-primary">{dueQuizCount}</span>개
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          SRS 망각곡선에 따라 재점검이 대기 중입니다.
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/quiz"
+                      data-testid="link-today-quiz"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover-elevate active-elevate-2"
+                    >
+                      지금 시작 <ArrowRight className="size-3.5" />
+                    </Link>
+                  </CardContent>
+                </Card>
+              )}
+              {nextPeppa && (
+                <Card className="bg-violet-500/5 border-violet-500/40" data-testid="card-today-peppa">
+                  <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-10 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                        <Tv2 className="size-5 text-violet-700 dark:text-violet-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          오늘 볼 영상 · S{nextPeppa.season}E{String(nextPeppa.episode).padStart(2, "0")}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate" title={nextPeppa.titleEn}>
+                          {nextPeppa.titleEn} — {nextPeppa.titleKo}
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href={nextPeppa.videoUrl && nextPeppa.videoUrl.length > 0
+                        ? nextPeppa.videoUrl
+                        : `https://www.youtube.com/results?search_query=${encodeURIComponent(`Peppa Pig Season ${nextPeppa.season} Episode ${nextPeppa.episode} ${nextPeppa.titleEn} full episode`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="link-today-peppa"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-violet-600 text-white text-xs font-medium hover-elevate active-elevate-2"
+                    >
+                      지금 시청 <ArrowRight className="size-3.5" />
+                    </a>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
 
           {/* KPI row */}
@@ -214,6 +262,7 @@ export default function Dashboard() {
               hint={`연습 ${practicedToeic}문장`}
               icon={Languages}
               tone="blue"
+              href="/toeic"
             />
             <StatCard
               testId="stat-peppa"
@@ -222,6 +271,7 @@ export default function Dashboard() {
               hint={`시청 ${watchedPeppa}편`}
               icon={Tv2}
               tone="purple"
+              href="/peppa"
             />
             <StatCard
               testId="stat-phrases"
@@ -229,6 +279,7 @@ export default function Dashboard() {
               value={`${masteredPhrases} / 50`}
               hint={`복습 ${reviewedPhrases}개`}
               icon={MessageSquareQuote}
+              href="/phrases"
             />
           </div>
 

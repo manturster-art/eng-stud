@@ -98,14 +98,26 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Logo size={22} />
           <span className="font-semibold text-sm text-foreground">Eight Months</span>
         </div>
-        <button
-          onClick={toggle}
-          className="p-2 rounded-md border hover-elevate"
-          data-testid="button-theme-toggle-mobile"
-          title="테마 전환"
-        >
-          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={toggle}
+            className="p-2 rounded-md border hover-elevate"
+            data-testid="button-theme-toggle-mobile"
+            title="테마 전환"
+          >
+            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </button>
+          {user && (
+            <button
+              onClick={logout}
+              className="p-2 rounded-md border hover-elevate text-muted-foreground"
+              data-testid="button-logout-mobile"
+              title="로그아웃"
+            >
+              <LogOut className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="md:hidden fixed bottom-0 inset-x-0 border-t bg-background z-30 flex justify-around">
         {mobileNavItems.map((item) => {

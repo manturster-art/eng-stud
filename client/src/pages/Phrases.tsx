@@ -245,19 +245,32 @@ export default function PhrasesPage() {
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-muted-foreground mr-1">마스터리</span>
-                  {[1, 2, 3, 4].map((n) => (
-                    <Star
-                      key={n}
-                      className={`size-3.5 ${
-                        n <= p.masteryLevel
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-muted-foreground/40"
-                      }`}
-                    />
-                  ))}
-                  {p.masteryLevel >= 3 && <CheckCircle2 className="size-3.5 text-primary ml-1" />}
+                  <div className="inline-flex rounded-md border overflow-hidden" role="group" aria-label="마스터리 선택">
+                    {[1, 2, 3, 4].map((n) => {
+                      const active = n === p.masteryLevel;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          data-testid={`mastery-${p.id}-${n}`}
+                          onClick={() => updateMut.mutate({ id: p.id, partial: { masteryLevel: n, lastReviewedAt: new Date().toISOString().slice(0, 10) } })}
+                          title={`마스터리 ${n}점`}
+                          className={`h-7 w-7 text-xs tabular flex items-center justify-center border-r last:border-r-0 hover-elevate active-elevate-2 transition-colors ${
+                            active
+                              ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold"
+                              : n <= p.masteryLevel
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {p.masteryLevel >= 3 && <CheckCircle2 className="size-3.5 text-primary" />}
                 </div>
 
                 <div className="flex items-center gap-1.5">

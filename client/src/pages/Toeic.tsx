@@ -238,26 +238,31 @@ export default function ToeicPage() {
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-muted-foreground mr-1">숙달도</span>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      data-testid={`star-${s.id}-${n}`}
-                      onClick={() => onSetMastery(s, n)}
-                      title={`숙달도 ${n}점`}
-                      className="p-0.5"
-                    >
-                      <Star
-                        className={`size-3.5 ${
-                          n <= s.masteryLevel
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/40"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  {s.masteryLevel >= 4 && <Check className="size-3.5 text-primary ml-1" />}
+                  <div className="inline-flex rounded-md border overflow-hidden" role="group" aria-label="숙달도 선택">
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const active = n === s.masteryLevel;
+                      return (
+                        <button
+                          key={n}
+                          data-testid={`star-${s.id}-${n}`}
+                          onClick={() => onSetMastery(s, n)}
+                          title={`숙달도 ${n}점`}
+                          className={`h-7 w-7 text-xs tabular flex items-center justify-center border-r last:border-r-0 hover-elevate active-elevate-2 transition-colors ${
+                            active
+                              ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold"
+                              : n <= s.masteryLevel
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {s.masteryLevel >= 4 && <Check className="size-3.5 text-primary" />}
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
