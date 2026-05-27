@@ -25,6 +25,10 @@ import Database from "better-sqlite3";
 import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { peppaSeed } from "./seed-peppa";
+import { toeicSeed } from "./seed-toeic";
+import { phrasesSeed } from "./seed-phrases";
+import { peppaPhrasesSeed } from "./seed-peppa-phrases";
 import { friendsPhrasesSeed } from "./seed-friends-phrases";
 
 const DB_PATH = process.env.DATABASE_PATH || "data.db";
@@ -176,27 +180,79 @@ if (legacyUser) {
   }
 }
 
-// 시드 백필: seedUserData는 phrases가 0개일 때만 INSERT하므로 신규 시드가 추가될
-// 때마다 기존 사용자는 받지 못함. 부팅 시 idempotent하게 source별로 누락된 시드를
-// 채워준다. 한 번 들어간 source는 다시 들어가지 않으므로 매 부팅이 안전.
+// 시드 백필: 모든 사용자에 대해 누락된 시드 데이터를 idempotent하게 채워준다.
+// 가입 시 seedUserData가 실패했거나, 신규 시드 추가 시 기존 사용자가 못 받은
+// 경우 모두 복구. 각 source/테이블별로 COUNT=0일 때만 INSERT.
 {
   const allUsers = sqlite.prepare("SELECT id FROM users WHERE id != 0").all() as { id: number }[];
-  const checkFriends = sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'friends'");
-  const insertFriends = sqlite.prepare(
+  const nowIso = new Date().toISOString();
+
+  const insertPeppaEp = sqlite.prepare(
+    "INSERT INTO peppa_episodes (user_id, season, episode, title_en, title_ko, watched_count, shadowed_count, status, video_url) VALUES (?, ?, ?, ?, ?, 0, 0, 'pending', '')"
+  );
+  const insertToeic = sqlite.prepare(
+    "INSERT INTO toeic_sentences (user_id, sentence_no, category, korean, english, practice_count, mastery_level, bookmarked, consecutive_correct, total_correct, total_wrong) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)"
+  );
+  const insertSettings = sqlite.prepare(
+    "INSERT INTO settings (user_id, start_date, end_date, daily_listening_target, daily_shadowing_target, daily_conversation_target, weekly_toeic_target, weekly_peppa_target, goal_level) VALUES (?, ?, ?, 40, 30, 20, 50, 7, ?)"
+  );
+  const insertSeed = sqlite.prepare(
+    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
+  );
+  const insertPeppaPh = sqlite.prepare(
+    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
+  );
+  const insertFriendsPh = sqlite.prepare(
     "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
   );
-  const nowIso = new Date().toISOString();
+  const epLookup = sqlite.prepare("SELECT id, title_en FROM peppa_episodes WHERE user_id = ? AND season = ? AND episode = ?");
+
   for (const u of allUsers) {
-    const has = (checkFriends.get(u.id) as { c: number }).c > 0;
-    if (has) continue;
     const tx = sqlite.transaction(() => {
-      for (const p of friendsPhrasesSeed) {
-        const label = `Friends S1E${String(p.episode).padStart(2, "0")} ${p.episodeTitle}`;
-        insertFriends.run(u.id, p.phraseEn, p.phraseKo, label, p.category, nowIso);
+      // peppa_episodes
+      const peppaC = (sqlite.prepare("SELECT COUNT(*) as c FROM peppa_episodes WHERE user_id = ?").get(u.id) as { c: number }).c;
+      if (peppaC === 0) {
+        for (const ep of peppaSeed) insertPeppaEp.run(u.id, ep.season, ep.episode, ep.titleEn, ep.titleKo);
+        console.log(`[storage] backfilled ${peppaSeed.length} Peppa episodes for user ${u.id}`);
+      }
+      // toeic
+      const toeicC = (sqlite.prepare("SELECT COUNT(*) as c FROM toeic_sentences WHERE user_id = ?").get(u.id) as { c: number }).c;
+      if (toeicC === 0) {
+        for (const s of toeicSeed) insertToeic.run(u.id, s.sentenceNo, s.category, s.korean, s.english);
+        console.log(`[storage] backfilled ${toeicSeed.length} TOEIC sentences for user ${u.id}`);
+      }
+      // settings
+      const settingsRow = sqlite.prepare("SELECT id FROM settings WHERE user_id = ?").get(u.id);
+      if (!settingsRow) {
+        insertSettings.run(u.id, "2026-04-25", "2026-12-31", "일반회화 (CEFR B1)");
+        console.log(`[storage] backfilled settings for user ${u.id}`);
+      }
+      // phrases — source별 가드
+      const seedC = (sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'seed'").get(u.id) as { c: number }).c;
+      if (seedC === 0) {
+        for (const p of phrasesSeed) insertSeed.run(u.id, p.phraseEn, p.phraseKo, p.category, nowIso);
+        console.log(`[storage] backfilled ${phrasesSeed.length} seed phrases for user ${u.id}`);
+      }
+      const peppaPhC = (sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'peppa'").get(u.id) as { c: number }).c;
+      if (peppaPhC === 0) {
+        for (const p of peppaPhrasesSeed) {
+          const ep = epLookup.get(u.id, p.season, p.episode) as { id: number; title_en: string } | undefined;
+          if (!ep) continue;
+          const label = `Peppa S${p.season}E${String(p.episode).padStart(2, "0")} ${ep.title_en}`;
+          insertPeppaPh.run(u.id, p.phraseEn, p.phraseKo, ep.id, label, p.category, nowIso);
+        }
+        console.log(`[storage] backfilled ${peppaPhrasesSeed.length} Peppa phrases for user ${u.id}`);
+      }
+      const friendsPhC = (sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'friends'").get(u.id) as { c: number }).c;
+      if (friendsPhC === 0) {
+        for (const p of friendsPhrasesSeed) {
+          const label = `Friends S1E${String(p.episode).padStart(2, "0")} ${p.episodeTitle}`;
+          insertFriendsPh.run(u.id, p.phraseEn, p.phraseKo, label, p.category, nowIso);
+        }
+        console.log(`[storage] backfilled ${friendsPhrasesSeed.length} Friends phrases for user ${u.id}`);
       }
     });
     tx();
-    console.log(`[storage] backfilled ${friendsPhrasesSeed.length} Friends phrases for user ${u.id}`);
   }
 }
 
