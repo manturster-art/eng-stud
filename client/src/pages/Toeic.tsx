@@ -214,6 +214,7 @@ export default function ToeicPage() {
                 <button
                   data-testid={`button-bookmark-${s.id}`}
                   onClick={() => onBookmark(s)}
+                  title={s.bookmarked ? "북마크 해제" : "북마크"}
                   className={s.bookmarked ? "text-amber-500" : "text-muted-foreground/40 hover:text-amber-500"}
                 >
                   <Bookmark className={`size-4 ${s.bookmarked ? "fill-amber-400" : ""}`} />
@@ -244,6 +245,7 @@ export default function ToeicPage() {
                       key={n}
                       data-testid={`star-${s.id}-${n}`}
                       onClick={() => onSetMastery(s, n)}
+                      title={`숙달도 ${n}점`}
                       className="p-0.5"
                     >
                       <Star

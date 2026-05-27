@@ -21,12 +21,14 @@ const SOURCE_LABEL: Record<string, string> = {
   peppa: "Peppa",
   toeic: "TOEIC",
   friends: "Friends",
+  business: "Business",
 };
 const SOURCE_TONE: Record<string, string> = {
   seed: "bg-muted text-muted-foreground",
   peppa: "bg-pink-500/15 text-pink-700 dark:text-pink-400",
   toeic: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   friends: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+  business: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
 };
 
 export default function PhrasesPage() {
@@ -151,6 +153,7 @@ export default function PhrasesPage() {
             <TabsTrigger value="seed" data-testid="tab-source-seed">기본</TabsTrigger>
             <TabsTrigger value="peppa" data-testid="tab-source-peppa">Peppa</TabsTrigger>
             <TabsTrigger value="friends" data-testid="tab-source-friends">Friends</TabsTrigger>
+            <TabsTrigger value="business" data-testid="tab-source-business">Business</TabsTrigger>
             <TabsTrigger value="toeic" data-testid="tab-source-toeic">TOEIC</TabsTrigger>
             <TabsTrigger value="bookmarked" data-testid="tab-source-bookmark">북마크</TabsTrigger>
           </TabsList>

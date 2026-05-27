@@ -19,3 +19,4 @@
 | 2026-05-25 | design-reviewer 추가 | agents/design-reviewer.md, skills/review-design, orchestrator | UX·디자인 검증 영역 분리, module-reviewer와 병렬 실행 |
 | 2026-05-26 | Peppa S2 E1~E10 표현 30개 시드 추가 | server/seed-peppa-phrases.ts | curator → reviewer 파이프라인 1차 가동, 중복 0건, npm run check 통과 |
 | 2026-05-26 | Friends S1 E1~E10 표현 40개 시드 + UI 통합 | server/seed-friends-phrases.ts, storage.ts, auth.ts, Phrases.tsx, schema.ts | 성인 일상 회화 컨텐츠 확장. curator → module/design-reviewer 병렬, rose 톤 채택, sourceLabel truncate + Tabs 가로 스크롤 자동 수정 |
+| 2026-05-27 | Business 표현 50개 + UI 종합 개선 | server/seed-business-phrases.ts, storage.ts, auth.ts, Phrases.tsx, AppShell.tsx, Dashboard.tsx, StudyLog.tsx, Settings.tsx, Predict.tsx, Toeic.tsx, not-found.tsx | 비즈니스 회화 5개 카테고리(phone/email/meeting/smalltalk/negotiation) 신규 + slate 톤. 모바일 바텀 네비 Quiz 포함(Peppa 제외), Dashboard 오늘 액션 카드 상단 승격, 종결어미 통일, 누락 title, StudyLog 터치 타겟, not-found 색상 토큰. design-reviewer 종합 감사 결과 반영 |

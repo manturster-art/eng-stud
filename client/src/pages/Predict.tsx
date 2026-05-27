@@ -235,7 +235,7 @@ export default function PredictPage() {
           </p>
           <p>
             도달 확률은 시그모이드 함수로 70점 문턱과의 거리를 변환한 값입니다. 휴리스틱 모델이므로 절대적 수치가 아닌
-            추세 지표로 활용해 주십시오.
+            추세 지표로 활용해 주세요.
           </p>
         </CardContent>
       </Card>

@@ -30,6 +30,7 @@ import { toeicSeed } from "./seed-toeic";
 import { phrasesSeed } from "./seed-phrases";
 import { peppaPhrasesSeed } from "./seed-peppa-phrases";
 import { friendsPhrasesSeed } from "./seed-friends-phrases";
+import { businessPhrasesSeed } from "./seed-business-phrases";
 
 const DB_PATH = process.env.DATABASE_PATH || "data.db";
 
@@ -220,6 +221,9 @@ if (legacyUser) {
   const insertFriendsPh = sqlite.prepare(
     "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
   );
+  const insertBusinessPh = sqlite.prepare(
+    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
+  );
   const epLookup = sqlite.prepare("SELECT id, title_en FROM peppa_episodes WHERE user_id = ? AND season = ? AND episode = ?");
 
   for (const u of allUsers) {
@@ -266,6 +270,14 @@ if (legacyUser) {
         }
         console.log(`[storage] backfilled ${friendsPhrasesSeed.length} Friends phrases for user ${u.id}`);
       }
+      const businessPhC = (sqlite.prepare("SELECT COUNT(*) as c FROM phrases WHERE user_id = ? AND source = 'business'").get(u.id) as { c: number }).c;
+      if (businessPhC === 0) {
+        for (const p of businessPhrasesSeed) {
+          const label = p.scenario ? `Business · ${p.scenario}` : `Business · ${p.category}`;
+          insertBusinessPh.run(u.id, p.phraseEn, p.phraseKo, label, p.category, nowIso);
+        }
+        console.log(`[storage] backfilled ${businessPhrasesSeed.length} Business phrases for user ${u.id}`);
+      }
     });
     tx();
   }
@@ -285,7 +297,8 @@ export interface IStorage {
     toeicSeed: any[],
     phrasesSeed: any[],
     peppaPhrasesSeed: any[],
-    friendsPhrasesSeed: any[]
+    friendsPhrasesSeed: any[],
+    businessPhrasesSeed: any[]
   ): Promise<void>;
 
   // study logs
@@ -354,7 +367,8 @@ export class DatabaseStorage implements IStorage {
     toeicSeed: any[],
     phrasesSeedData: any[] = [],
     peppaPhrasesSeedData: any[] = [],
-    friendsPhrasesSeedData: any[] = []
+    friendsPhrasesSeedData: any[] = [],
+    businessPhrasesSeedData: any[] = []
   ) {
     const peppaCount = sqlite.prepare("SELECT COUNT(*) as c FROM peppa_episodes WHERE user_id = ?").get(userId) as { c: number };
     if (peppaCount.c === 0) {
@@ -400,6 +414,9 @@ export class DatabaseStorage implements IStorage {
       const insertFriends = sqlite.prepare(
         "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
       );
+      const insertBusiness = sqlite.prepare(
+        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
+      );
       const seedTx = sqlite.transaction(() => {
         for (const p of phrasesSeedData) {
           insertSeed.run(userId, p.phraseEn, p.phraseKo, p.category, nowIso);
@@ -418,6 +435,11 @@ export class DatabaseStorage implements IStorage {
         for (const p of friendsPhrasesSeedData) {
           const label = `Friends S1E${String(p.episode).padStart(2, "0")} ${p.episodeTitle}`;
           insertFriends.run(userId, p.phraseEn, p.phraseKo, label, p.category, nowIso);
+        }
+        // Business 시드 (시나리오축 카테고리, sourceLabel은 'Business · {scenario}' 또는 카테고리)
+        for (const p of businessPhrasesSeedData) {
+          const label = p.scenario ? `Business · ${p.scenario}` : `Business · ${p.category}`;
+          insertBusiness.run(userId, p.phraseEn, p.phraseKo, label, p.category, nowIso);
         }
       });
       seedTx();

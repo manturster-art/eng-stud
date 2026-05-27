@@ -7,15 +7,18 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
 const navItems = [
-  { href: "/", label: "대시보드", icon: LayoutDashboard, testId: "nav-dashboard" },
-  { href: "/log", label: "학습 기록", icon: Pencil, testId: "nav-log" },
-  { href: "/peppa", label: "페파피그", icon: Tv2, testId: "nav-peppa" },
-  { href: "/phrases", label: "표현 학습", icon: MessageSquareQuote, testId: "nav-phrases" },
-  { href: "/toeic", label: "토익 400문장", icon: MessagesSquare, testId: "nav-toeic" },
-  { href: "/quiz", label: "오늘의 퀴즈", icon: Brain, testId: "nav-quiz" },
-  { href: "/predict", label: "목표 예측", icon: Sparkles, testId: "nav-predict" },
-  { href: "/settings", label: "설정", icon: SettingsIcon, testId: "nav-settings" },
+  { href: "/", label: "대시보드", icon: LayoutDashboard, testId: "nav-dashboard", mobile: true },
+  { href: "/log", label: "학습 기록", icon: Pencil, testId: "nav-log", mobile: true },
+  { href: "/peppa", label: "페파피그", icon: Tv2, testId: "nav-peppa", mobile: false },
+  { href: "/phrases", label: "표현 학습", icon: MessageSquareQuote, testId: "nav-phrases", mobile: true },
+  { href: "/toeic", label: "토익 400문장", icon: MessagesSquare, testId: "nav-toeic", mobile: true },
+  { href: "/quiz", label: "오늘의 퀴즈", icon: Brain, testId: "nav-quiz", mobile: true },
+  { href: "/predict", label: "목표 예측", icon: Sparkles, testId: "nav-predict", mobile: false },
+  { href: "/settings", label: "설정", icon: SettingsIcon, testId: "nav-settings", mobile: false },
 ];
+
+// 모바일 바텀 네비 5개: 일일 학습 핵심 루틴 (Peppa·예측·설정은 사이드바·대시보드 카드로 접근)
+const mobileNavItems = navItems.filter((item) => item.mobile);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -99,18 +102,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           onClick={toggle}
           className="p-2 rounded-md border hover-elevate"
           data-testid="button-theme-toggle-mobile"
+          title="테마 전환"
         >
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
       </div>
       <div className="md:hidden fixed bottom-0 inset-x-0 border-t bg-background z-30 flex justify-around">
-        {navItems.slice(0, 5).map((item) => {
+        {mobileNavItems.map((item) => {
           const active = location === item.href;
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
+              data-testid={`mobile-${item.testId}`}
               className={cn(
                 "flex flex-col items-center gap-0.5 py-2 px-3 text-[10px]",
                 active ? "text-primary font-medium" : "text-muted-foreground"

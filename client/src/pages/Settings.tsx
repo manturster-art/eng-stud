@@ -47,7 +47,7 @@ export default function SettingsPage() {
     <div className="px-5 sm:px-8 py-6 max-w-3xl mx-auto space-y-5">
       <header>
         <h1 className="text-xl font-semibold tracking-tight">학습 설정</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">학습 기간과 일일·주간 목표량을 조정하십시오.</p>
+        <p className="text-sm text-muted-foreground mt-0.5">학습 기간과 일일·주간 목표량을 조정해 주세요.</p>
       </header>
 
       <Card>

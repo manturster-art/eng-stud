@@ -147,7 +147,7 @@ export default function StudyLogPage() {
     <div className="px-5 sm:px-8 py-6 max-w-5xl mx-auto space-y-6">
       <header>
         <h1 className="text-xl font-semibold tracking-tight">일일 학습 기록</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">날짜별 리스닝/쉐도잉/회화 시간과 학습 내용을 기록하십시오.</p>
+        <p className="text-sm text-muted-foreground mt-0.5">날짜별 리스닝/쉐도잉/회화 시간과 학습 내용을 기록해 주세요.</p>
       </header>
 
       <Card>
@@ -294,7 +294,7 @@ export default function StudyLogPage() {
             <Label className="text-xs">메모</Label>
             <Textarea
               data-testid="input-notes"
-              placeholder="오늘 배운 표현, 인상 깊은 문장, 약점 등을 기록해 보십시오."
+              placeholder="오늘 배운 표현, 인상 깊은 문장, 약점 등을 기록해 보세요."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="min-h-20"
@@ -347,14 +347,16 @@ export default function StudyLogPage() {
                   <button
                     data-testid={`button-edit-${l.id}`}
                     onClick={() => onDateChange(l.date)}
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary hover:underline px-2 py-1 rounded-md hover-elevate"
+                    title="이 날짜로 편집"
                   >
                     편집
                   </button>
                   <button
                     data-testid={`button-delete-${l.id}`}
                     onClick={() => deleteMut.mutate(l.id)}
-                    className="text-muted-foreground hover:text-destructive p-1"
+                    className="text-muted-foreground hover:text-destructive p-1.5 rounded-md hover-elevate"
+                    title="삭제"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

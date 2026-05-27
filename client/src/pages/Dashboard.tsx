@@ -160,6 +160,34 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
+          {/* 오늘의 액션 — 학습 시작 신호. dueQuizCount > 0 일 때만 강조 노출 */}
+          {dueQuizCount > 0 && (
+            <Card className="bg-primary/5 border-primary/40" data-testid="card-today-action">
+              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <Brain className="size-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      오늘 복습할 문장 <span className="tabular text-primary">{dueQuizCount}</span>개
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      SRS 망각곡선에 따라 재점검이 대기 중입니다.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/quiz"
+                  data-testid="link-today-quiz"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover-elevate active-elevate-2"
+                >
+                  지금 시작 <ArrowRight className="size-3.5" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
           {/* KPI row */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <StatCard
