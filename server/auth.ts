@@ -14,8 +14,20 @@ export const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID ||
   "396652579079-rpp833005t1upvjo6dqfg8r99663e2fq.apps.googleusercontent.com";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "eng-dashboard-secret-2026-please-change";
+// JWT 서명 시크릿. production에서 미설정 시 토큰 위조로 전 계정 탈취가 가능하므로
+// 폴백을 두지 않고 부팅을 중단한다. 개발 환경에서만 고정 기본값 허용.
+const JWT_SECRET = (() => {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FATAL: JWT_SECRET 환경변수가 설정되지 않았습니다. " +
+      "production에서는 반드시 강력한 랜덤 시크릿(openssl rand -hex 48)을 지정해야 합니다."
+    );
+  }
+  // 개발 전용 — production이 아닐 때만 도달
+  return "dev-only-insecure-secret-do-not-use-in-production";
+})();
 
 // 가입 게이팅: INVITE_CODE 설정 시에만 신규 가입 허용
 export const INVITE_CODE = process.env.INVITE_CODE || "";

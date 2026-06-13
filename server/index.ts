@@ -16,13 +16,14 @@ declare module "http" {
 
 app.use(
   express.json({
+    limit: "100kb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -50,7 +51,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // 인증 응답에는 JWT 토큰·이메일이 들어있어 평문 로깅 시 유출 위험 → 본문 제외
+      const isAuthPath = path.startsWith("/api/auth/");
+      if (capturedJsonResponse && !isAuthPath) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -66,14 +69,16 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
+    // 상세 오류는 서버 로그에만. 클라이언트에는 5xx의 경우 일반 메시지만 노출
+    // (내부 구현·스택 노출 방지). 4xx는 의도된 사용자 메시지이므로 전달.
+    console.error("Request error:", err);
 
     if (res.headersSent) {
       return next(err);
     }
 
+    const message = status < 500 ? (err.message || "Bad Request") : "Internal Server Error";
     return res.status(status).json({ message });
   });
 

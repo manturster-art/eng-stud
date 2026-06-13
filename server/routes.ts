@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "node:http";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import {
   insertStudyLogSchema,
@@ -19,6 +20,22 @@ import {
   verifyGoogleIdToken,
 } from "./auth";
 
+// 인증 엔드포인트 brute force / 무한 가입 방어. IP당 15분에 20회.
+// register/login에만 적용 (config/me는 제외).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too many attempts, please try again later" },
+});
+
+// 안전한 :id 파싱 — 정수가 아니면 null
+function parseId(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -32,7 +49,7 @@ export async function registerRoutes(
   });
 
   // ---------- Auth: Google 로그인 ----------
-  app.post("/api/auth/google", async (req, res) => {
+  app.post("/api/auth/google", authLimiter, async (req, res) => {
     try {
       const { credential } = req.body || {};
       if (!credential) return res.status(400).json({ error: "missing credential" });
@@ -49,13 +66,14 @@ export async function registerRoutes(
         user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
       });
     } catch (err: any) {
-      console.error("auth error", err);
-      res.status(401).json({ error: "auth failed", detail: err?.message });
+      // 상세 오류는 서버 로그에만, 클라이언트에는 일반화된 메시지
+      console.error("google auth error", err);
+      res.status(401).json({ error: "auth failed" });
     }
   });
 
   // ---------- Auth: 사용자명+비밀번호 로그인 ----------
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const { username, password } = req.body || {};
       if (!username || !password) {
@@ -73,12 +91,13 @@ export async function registerRoutes(
         user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
       });
     } catch (err: any) {
-      res.status(401).json({ error: err?.message || "auth failed" });
+      // loginUser는 미존재/오답 모두 "invalid credentials"로 통일 (사용자 열거 방지)
+      res.status(401).json({ error: "invalid credentials" });
     }
   });
 
   // ---------- Auth: 회원가입 (초대코드 필요) ----------
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const { username, password, inviteCode } = req.body || {};
       if (!username || !password || !inviteCode) {
@@ -133,8 +152,22 @@ export async function registerRoutes(
   });
 
   app.delete("/api/study-logs/:id", async (req, res) => {
-    await storage.deleteStudyLog(req.auth!.userId, Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    await storage.deleteStudyLog(req.auth!.userId, id);
     res.json({ ok: true });
+  });
+
+  // 퀴즈 통계 원자적 증분 (클라이언트 누적 중복 방지)
+  app.post("/api/study-logs/quiz-increment", async (req, res) => {
+    const correctDelta = Number(req.body?.correctDelta);
+    const totalDelta = Number(req.body?.totalDelta);
+    if (!Number.isInteger(correctDelta) || !Number.isInteger(totalDelta) || totalDelta < 0 || correctDelta < 0) {
+      return res.status(400).json({ error: "invalid deltas" });
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const log = await storage.incrementQuizStats(req.auth!.userId, today, correctDelta, totalDelta);
+    res.json(log);
   });
 
   // ---------- Peppa ----------
@@ -148,9 +181,11 @@ export async function registerRoutes(
     if (!partial.success) {
       return res.status(400).json({ error: partial.error.issues });
     }
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
     const ep = await storage.updatePeppaEpisode(
       req.auth!.userId,
-      Number(req.params.id),
+      id,
       partial.data
     );
     res.json(ep);
@@ -167,9 +202,11 @@ export async function registerRoutes(
     if (!partial.success) {
       return res.status(400).json({ error: partial.error.issues });
     }
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
     const s = await storage.updateToeicSentence(
       req.auth!.userId,
-      Number(req.params.id),
+      id,
       partial.data
     );
     res.json(s);
@@ -177,10 +214,12 @@ export async function registerRoutes(
 
   // 퀴즈 답변 기록 (SRS 자동 갱신)
   app.post("/api/toeic/:id/quiz", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
     const correct = Boolean(req.body?.correct);
     const s = await storage.recordQuizAnswer(
       req.auth!.userId,
-      Number(req.params.id),
+      id,
       correct
     );
     res.json(s);
@@ -224,21 +263,27 @@ export async function registerRoutes(
     if (!partial.success) {
       return res.status(400).json({ error: partial.error.issues });
     }
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
     const p = await storage.updatePhrase(
       req.auth!.userId,
-      Number(req.params.id),
+      id,
       partial.data
     );
     res.json(p);
   });
 
   app.delete("/api/phrases/:id", async (req, res) => {
-    await storage.deletePhrase(req.auth!.userId, Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    await storage.deletePhrase(req.auth!.userId, id);
     res.json({ ok: true });
   });
 
   app.post("/api/phrases/:id/review", async (req, res) => {
-    const p = await storage.recordPhraseReview(req.auth!.userId, Number(req.params.id));
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    const p = await storage.recordPhraseReview(req.auth!.userId, id);
     res.json(p);
   });
 

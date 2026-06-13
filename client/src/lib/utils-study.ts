@@ -70,12 +70,15 @@ export function aggregateByWeek(logs: StudyLog[], settings: Settings | null) {
   });
 }
 
-/** 최근 N일 */
+/** 최근 N일 — 날짜 문자열(YYYY-MM-DD) 기준 비교로 시각 성분에 의한 경계 흔들림 제거 */
 export function lastNDays(logs: StudyLog[], n: number): StudyLog[] {
-  const today = new Date();
-  const cutoff = new Date(today.getTime() - n * 86400000);
+  // 오늘 자정 기준으로 n일 전 날짜 키를 만든다 (오늘 포함 직전 n일).
+  const cutoffDate = new Date();
+  cutoffDate.setHours(0, 0, 0, 0);
+  cutoffDate.setDate(cutoffDate.getDate() - (n - 1));
+  const cutoffKey = fmt(cutoffDate);
   return logs
-    .filter((l) => parseISO(l.date) >= cutoff)
+    .filter((l) => l.date >= cutoffKey)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 

@@ -413,7 +413,7 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {dueQuizCount > 0
-                    ? "마스터리 4★ 이상 문장이 망각곱선에 따라 재점검을 기다리고 있습니다."
+                    ? "마스터리 4★ 이상 문장이 망각곡선에 따라 재점검을 기다리고 있습니다."
                     : "오늘 복습할 문장이 없습니다. 토익 페이지에서 마스터리를 높이시면 자동 등록됩니다."}
                 </p>
                 {todayLog && todayLog.quizTotal > 0 && (
@@ -482,7 +482,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm">주간 목표 달성률</CardTitle>
-              <span className="text-[11px] text-muted-foreground tabular">주당 목표 {(dailyTargetMin(settings ?? ({} as Settings)) * 7) || 630}분</span>
+              <span className="text-[11px] text-muted-foreground tabular">주당 목표 {settings ? dailyTargetMin(settings) * 7 : 630}분</span>
             </CardHeader>
             <CardContent>
               <div className="h-56">

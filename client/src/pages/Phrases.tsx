@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Star, Check, Search, Volume2, Film, Bookmark, RotateCcw, Trash2, CheckCircle2,
 } from "lucide-react";
-import { speakEnglish } from "@/lib/utils-study";
+import { speakEnglish, todayISO } from "@/lib/utils-study";
 import { PlayPhraseModal } from "@/components/PlayPhraseModal";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,12 +71,16 @@ export default function PhrasesPage() {
     return { total, reviewed, mastered, bookmarked };
   }, [list]);
 
+  const onMutError = (e: any) =>
+    toast({ title: "처리 실패", description: e?.message ?? "다시 시도해 주세요.", variant: "destructive" });
+
   const updateMut = useMutation({
     mutationFn: async ({ id, partial }: { id: number; partial: Partial<Phrase> }) => {
       const res = await apiRequest("PATCH", `/api/phrases/${id}`, partial);
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/phrases"] }),
+    onError: onMutError,
   });
 
   const reviewMut = useMutation({
@@ -85,6 +89,7 @@ export default function PhrasesPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/phrases"] }),
+    onError: onMutError,
   });
 
   const deleteMut = useMutation({
@@ -96,10 +101,17 @@ export default function PhrasesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/phrases"] });
       toast({ title: "삭제되었습니다" });
     },
+    onError: onMutError,
   });
 
   const onBookmark = (p: Phrase) =>
     updateMut.mutate({ id: p.id, partial: { bookmarked: !p.bookmarked } });
+
+  const onSetMastery = (p: Phrase, level: number) => {
+    // 같은 값 재클릭이면 0으로 토글
+    const next = p.masteryLevel === level ? 0 : level;
+    updateMut.mutate({ id: p.id, partial: { masteryLevel: next, lastReviewedAt: todayISO() } });
+  };
 
   const onReset = (p: Phrase) =>
     updateMut.mutate({
@@ -255,7 +267,7 @@ export default function PhrasesPage() {
                           key={n}
                           type="button"
                           data-testid={`mastery-${p.id}-${n}`}
-                          onClick={() => updateMut.mutate({ id: p.id, partial: { masteryLevel: n, lastReviewedAt: new Date().toISOString().slice(0, 10) } })}
+                          onClick={() => onSetMastery(p, n)}
                           title={`마스터리 ${n}점`}
                           className={`h-7 w-7 text-xs tabular flex items-center justify-center border-r last:border-r-0 hover-elevate active-elevate-2 transition-colors ${
                             active

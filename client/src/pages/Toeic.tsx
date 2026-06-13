@@ -53,6 +53,8 @@ export default function ToeicPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/toeic"] }),
+    onError: (e: any) =>
+      toast({ title: "처리 실패", description: e?.message ?? "다시 시도해 주세요.", variant: "destructive" }),
   });
 
   const onPractice = (s: ToeicSentence) => {
@@ -65,10 +67,12 @@ export default function ToeicPage() {
     });
   };
   const onSetMastery = (s: ToeicSentence, level: number) => {
+    // 같은 값 재클릭이면 0으로 토글 (레벨 낮추는 수단 + 불필요 PATCH 방지)
+    const next = s.masteryLevel === level ? 0 : level;
     updateMut.mutate({
       id: s.id,
       partial: {
-        masteryLevel: level,
+        masteryLevel: next,
         lastPracticedAt: todayISO(),
       },
     });

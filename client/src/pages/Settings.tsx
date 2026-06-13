@@ -38,6 +38,9 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "설정이 저장되었습니다" });
     },
+    onError: (e: any) => {
+      toast({ title: "저장 실패", description: e?.message ?? "다시 시도해 주세요.", variant: "destructive" });
+    },
   });
 
   const set = <K extends keyof Settings>(key: K, val: Settings[K]) =>

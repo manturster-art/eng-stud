@@ -168,12 +168,43 @@ safeAlter("ALTER TABLE users ADD COLUMN password_hash TEXT");
 
 // 인덱스
 function safeIndex(s: string) { try { sqlite.exec(s); } catch (_) {} }
-safeIndex("CREATE INDEX IF NOT EXISTS idx_study_logs_user_date ON study_logs(user_id, date)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_peppa_user ON peppa_episodes(user_id, season, episode)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_toeic_user_no ON toeic_sentences(user_id, sentence_no)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_settings_user ON settings(user_id)");
 safeIndex("CREATE INDEX IF NOT EXISTS idx_phrases_user ON phrases(user_id, source, created_at)");
 safeIndex("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL");
+
+// study_logs (user_id, date) 유니크 보장.
+// upsert가 select-then-insert라 동시 요청 시 중복 행이 생길 수 있으므로 유니크 제약 필요.
+// 유니크 인덱스 생성 전, 기존에 이미 쌓인 중복 행을 정리한다 (id가 큰 것=최신 유지).
+try {
+  sqlite.exec(`
+    DELETE FROM study_logs
+    WHERE id NOT IN (
+      SELECT MAX(id) FROM study_logs GROUP BY user_id, date
+    )
+  `);
+} catch (_) { /* 빈 테이블 등 */ }
+safeIndex("CREATE UNIQUE INDEX IF NOT EXISTS idx_study_logs_user_date ON study_logs(user_id, date)");
+
+// 시드 중복 방지 자연키 유니크 인덱스 (백필/가입 race 시 2배 INSERT 차단).
+// 기존 중복 행 정리 후 인덱스 생성 (id 큰 것=최신 유지).
+function dedupeThenUnique(dedupeSql: string, indexSql: string) {
+  try { sqlite.exec(dedupeSql); } catch (_) {}
+  safeIndex(indexSql);
+}
+dedupeThenUnique(
+  "DELETE FROM peppa_episodes WHERE id NOT IN (SELECT MAX(id) FROM peppa_episodes GROUP BY user_id, season, episode)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_peppa_unique ON peppa_episodes(user_id, season, episode)"
+);
+dedupeThenUnique(
+  "DELETE FROM toeic_sentences WHERE id NOT IN (SELECT MAX(id) FROM toeic_sentences GROUP BY user_id, sentence_no)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_toeic_unique ON toeic_sentences(user_id, sentence_no)"
+);
+dedupeThenUnique(
+  "DELETE FROM phrases WHERE id NOT IN (SELECT MAX(id) FROM phrases GROUP BY user_id, source, phrase_en)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_phrases_unique ON phrases(user_id, source, phrase_en)"
+);
 
 // 일회성 마이그레이션: 이전 ACCESS_PASSWORD 단일 사용자(user@local)의 데이터를
 // orphan(user_id=0)으로 옮기고 사용자 레코드 삭제. 첫 신규 가입자가 인수받음.
@@ -203,26 +234,27 @@ if (legacyUser) {
   const allUsers = sqlite.prepare("SELECT id FROM users WHERE id != 0").all() as { id: number }[];
   const nowIso = new Date().toISOString();
 
+  // INSERT OR IGNORE: 자연키 유니크 인덱스 충돌 시(동시 백필/가입 race) 조용히 무시
   const insertPeppaEp = sqlite.prepare(
-    "INSERT INTO peppa_episodes (user_id, season, episode, title_en, title_ko, watched_count, shadowed_count, status, video_url) VALUES (?, ?, ?, ?, ?, 0, 0, 'pending', '')"
+    "INSERT OR IGNORE INTO peppa_episodes (user_id, season, episode, title_en, title_ko, watched_count, shadowed_count, status, video_url) VALUES (?, ?, ?, ?, ?, 0, 0, 'pending', '')"
   );
   const insertToeic = sqlite.prepare(
-    "INSERT INTO toeic_sentences (user_id, sentence_no, category, korean, english, practice_count, mastery_level, bookmarked, consecutive_correct, total_correct, total_wrong) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)"
+    "INSERT OR IGNORE INTO toeic_sentences (user_id, sentence_no, category, korean, english, practice_count, mastery_level, bookmarked, consecutive_correct, total_correct, total_wrong) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)"
   );
   const insertSettings = sqlite.prepare(
     "INSERT INTO settings (user_id, start_date, end_date, daily_listening_target, daily_shadowing_target, daily_conversation_target, weekly_toeic_target, weekly_peppa_target, goal_level) VALUES (?, ?, ?, 40, 30, 20, 50, 7, ?)"
   );
   const insertSeed = sqlite.prepare(
-    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
+    "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
   );
   const insertPeppaPh = sqlite.prepare(
-    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
   );
   const insertFriendsPh = sqlite.prepare(
-    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
+    "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
   );
   const insertBusinessPh = sqlite.prepare(
-    "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
+    "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
   );
   const epLookup = sqlite.prepare("SELECT id, title_en FROM peppa_episodes WHERE user_id = ? AND season = ? AND episode = ?");
 
@@ -305,6 +337,7 @@ export interface IStorage {
   listStudyLogs(userId: number): Promise<StudyLog[]>;
   getStudyLogByDate(userId: number, date: string): Promise<StudyLog | undefined>;
   upsertStudyLog(userId: number, log: InsertStudyLog): Promise<StudyLog>;
+  incrementQuizStats(userId: number, date: string, correctDelta: number, totalDelta: number): Promise<StudyLog | undefined>;
   deleteStudyLog(userId: number, id: number): Promise<void>;
 
   // peppa episodes
@@ -373,7 +406,7 @@ export class DatabaseStorage implements IStorage {
     const peppaCount = sqlite.prepare("SELECT COUNT(*) as c FROM peppa_episodes WHERE user_id = ?").get(userId) as { c: number };
     if (peppaCount.c === 0) {
       const insert = sqlite.prepare(
-        "INSERT INTO peppa_episodes (user_id, season, episode, title_en, title_ko, watched_count, shadowed_count, status, video_url) VALUES (?, ?, ?, ?, ?, 0, 0, 'pending', '')"
+        "INSERT OR IGNORE INTO peppa_episodes (user_id, season, episode, title_en, title_ko, watched_count, shadowed_count, status, video_url) VALUES (?, ?, ?, ?, ?, 0, 0, 'pending', '')"
       );
       const tx = sqlite.transaction((rows: any[]) => {
         for (const r of rows) {
@@ -385,7 +418,7 @@ export class DatabaseStorage implements IStorage {
     const toeicCount = sqlite.prepare("SELECT COUNT(*) as c FROM toeic_sentences WHERE user_id = ?").get(userId) as { c: number };
     if (toeicCount.c === 0) {
       const insert = sqlite.prepare(
-        "INSERT INTO toeic_sentences (user_id, sentence_no, category, korean, english, practice_count, mastery_level, bookmarked, consecutive_correct, total_correct, total_wrong) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)"
+        "INSERT OR IGNORE INTO toeic_sentences (user_id, sentence_no, category, korean, english, practice_count, mastery_level, bookmarked, consecutive_correct, total_correct, total_wrong) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)"
       );
       const tx = sqlite.transaction((rows: any[]) => {
         for (const r of rows) {
@@ -406,16 +439,16 @@ export class DatabaseStorage implements IStorage {
     if (phraseCount.c === 0) {
       const nowIso = new Date().toISOString();
       const insertSeed = sqlite.prepare(
-        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
+        "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'seed', NULL, '', ?, ?)"
       );
       const insertPeppa = sqlite.prepare(
-        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
+        "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'peppa', ?, ?, ?, ?)"
       );
       const insertFriends = sqlite.prepare(
-        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
+        "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'friends', NULL, ?, ?, ?)"
       );
       const insertBusiness = sqlite.prepare(
-        "INSERT INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
+        "INSERT OR IGNORE INTO phrases (user_id, phrase_en, phrase_ko, source, source_ref_id, source_label, category, created_at) VALUES (?, ?, ?, 'business', NULL, ?, ?, ?)"
       );
       const seedTx = sqlite.transaction(() => {
         for (const p of phrasesSeedData) {
@@ -456,13 +489,33 @@ export class DatabaseStorage implements IStorage {
       .get();
   }
   async upsertStudyLog(userId: number, log: InsertStudyLog) {
-    const existing = await this.getStudyLogByDate(userId, log.date);
-    if (existing) {
-      return db.update(studyLogs).set({ ...log, userId })
-        .where(eq(studyLogs.id, existing.id))
-        .returning().get();
-    }
-    return db.insert(studyLogs).values({ ...log, userId }).returning().get();
+    // (user_id, date) 유니크 인덱스 기반 원자적 upsert.
+    // select-then-insert의 동시성 중복 행 문제를 방지한다.
+    const { date, ...rest } = log;
+    return db.insert(studyLogs)
+      .values({ ...log, userId })
+      .onConflictDoUpdate({
+        target: [studyLogs.userId, studyLogs.date],
+        set: { ...rest },
+      })
+      .returning()
+      .get();
+  }
+
+  // 퀴즈 통계 원자적 증분. 클라이언트 누적(stale 캐시 중복 위험)을 제거하기 위해
+  // 서버에서 단일 SQL로 처리. (user_id, date) 유니크 인덱스 기반 upsert이므로
+  // 동시 요청에도 정확히 누적된다.
+  async incrementQuizStats(userId: number, date: string, correctDelta: number, totalDelta: number) {
+    sqlite.prepare(
+      `INSERT INTO study_logs (user_id, date, quiz_correct, quiz_total)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, date)
+       DO UPDATE SET quiz_correct = quiz_correct + excluded.quiz_correct,
+                     quiz_total   = quiz_total   + excluded.quiz_total`
+    ).run(userId, date, correctDelta, totalDelta);
+    return db.select().from(studyLogs)
+      .where(and(eq(studyLogs.userId, userId), eq(studyLogs.date, date)))
+      .get();
   }
   async deleteStudyLog(userId: number, id: number) {
     db.delete(studyLogs)
@@ -517,8 +570,10 @@ export class DatabaseStorage implements IStorage {
       consecutive += 1;
       totalC += 1;
       if (mastery < 5) mastery = Math.min(5, mastery + 1);
+      // consecutive는 이미 +1된 값(첫 정답=1). 첫 정답에 intervals[0]=1일이 되도록
+      // consecutive-1로 인덱싱 → 안내문 "1일 → 2일 → 4일 ..."과 일치.
       const intervals = [1, 2, 4, 7, 14, 30, 60];
-      nextReviewDays = intervals[Math.min(intervals.length - 1, consecutive)];
+      nextReviewDays = intervals[Math.min(intervals.length - 1, consecutive - 1)];
     } else {
       consecutive = 0;
       totalW += 1;

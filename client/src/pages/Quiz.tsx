@@ -40,14 +40,24 @@ function buildQuiz(due: ToeicSentence[], pool: ToeicSentence[]): QuizItem[] {
   return due.map((sentence) => {
     const mode: QuizMode = Math.random() < 0.5 ? "ko-to-en" : "en-to-ko";
     const correct = mode === "ko-to-en" ? sentence.english : sentence.korean;
-    // 같은 카테고리에서 distractors 추출 (더 까다로운 문제)
-    const sameCategory = pool.filter(
-      (s) => s.id !== sentence.id && s.category === sentence.category
-    );
+    const textOf = (s: ToeicSentence) => (mode === "ko-to-en" ? s.english : s.korean);
+
+    // 같은 카테고리 우선, 부족하면 다른 카테고리로 채움
+    const sameCategory = pool.filter((s) => s.id !== sentence.id && s.category === sentence.category);
     const others = pool.filter((s) => s.id !== sentence.id && s.category !== sentence.category);
-    const distractorPool = sameCategory.length >= 3 ? sameCategory : [...sameCategory, ...others];
-    const picks = shuffle(distractorPool).slice(0, 3);
-    const distractors = picks.map((p) => (mode === "ko-to-en" ? p.english : p.korean));
+    const ordered = [...shuffle(sameCategory), ...shuffle(others)];
+
+    // 정답과 텍스트가 같은 오답은 제외 (정답이 두 개처럼 보이는 것 방지) + 보기 텍스트 중복 제거
+    const distractors: string[] = [];
+    const seen = new Set<string>([correct]);
+    for (const s of ordered) {
+      const t = textOf(s);
+      if (seen.has(t)) continue;
+      seen.add(t);
+      distractors.push(t);
+      if (distractors.length === 3) break;
+    }
+
     const allOptions = shuffle([correct, ...distractors]);
     return {
       sentence,
@@ -91,30 +101,11 @@ export default function QuizPage() {
 
   const saveLogMut = useMutation({
     mutationFn: async (data: { quizCorrect: number; quizTotal: number }) => {
-      const t = todayISO();
-      const existing = logs.find((l) => l.date === t);
-      const payload = existing
-        ? {
-            ...existing,
-            quizCorrect: (existing.quizCorrect || 0) + data.quizCorrect,
-            quizTotal: (existing.quizTotal || 0) + data.quizTotal,
-          }
-        : {
-            date: t,
-            listeningMin: 0,
-            shadowingMin: 0,
-            conversationMin: 0,
-            toeicSentences: 0,
-            peppaEpisodes: 0,
-            selfRating: 0,
-            notes: "",
-            watchedEpisodeIds: "[]",
-            quizCorrect: data.quizCorrect,
-            quizTotal: data.quizTotal,
-          };
-      // id, sortable 필드 제거
-      const { id: _id, ...clean } = payload as any;
-      const res = await apiRequest("POST", "/api/study-logs", clean);
+      // 서버에서 원자적 증분 — 클라이언트 캐시 누적(stale 시 중복) 제거
+      const res = await apiRequest("POST", "/api/study-logs/quiz-increment", {
+        correctDelta: data.quizCorrect,
+        totalDelta: data.quizTotal,
+      });
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/study-logs"] }),

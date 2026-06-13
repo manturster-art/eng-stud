@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { todayISO, peppaVideoUrl, speakEnglish } from "@/lib/utils-study";
 import { PlayPhraseModal } from "@/components/PlayPhraseModal";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "예정",
@@ -28,6 +29,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function PeppaPage() {
+  const { toast } = useToast();
   const { data: list = [] } = useQuery<PeppaEpisode[]>({ queryKey: ["/api/peppa"] });
   const { data: allPhrases = [] } = useQuery<Phrase[]>({ queryKey: ["/api/phrases"] });
   const [season, setSeason] = useState<string>("all");
@@ -71,6 +73,8 @@ export default function PeppaPage() {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/peppa"] }),
+    onError: (e: any) =>
+      toast({ title: "처리 실패", description: e?.message ?? "다시 시도해 주세요.", variant: "destructive" }),
   });
 
   const phraseOpenedMut = useMutation({

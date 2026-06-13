@@ -34,21 +34,31 @@ export function PlayPhraseModal({
 }: PlayPhraseModalProps) {
   const url = playphraseUrl(phraseEn);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const loadedRef = useRef(false);
   const [embedBlocked, setEmbedBlocked] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
+  // 타이머는 모달이 열릴 때 한 번만 건다 (loaded 의존성 제거로 재설정 방지).
+  // onLoad 시점은 loadedRef로 추적하므로 effect를 다시 돌릴 필요가 없다.
   useEffect(() => {
     if (!open) {
       setEmbedBlocked(false);
-      setLoaded(false);
+      loadedRef.current = false;
       return;
     }
+    loadedRef.current = false;
+    setEmbedBlocked(false);
     const timer = window.setTimeout(() => {
-      // 3초 내에 로드되지 않으면 임베드 차단으로 간주
-      if (!loaded) setEmbedBlocked(true);
+      // 3초 내에 onLoad가 없으면 임베드 차단으로 간주
+      if (!loadedRef.current) setEmbedBlocked(true);
     }, 3000);
     return () => window.clearTimeout(timer);
-  }, [open, loaded]);
+  }, [open]);
+
+  const handleIframeLoad = () => {
+    loadedRef.current = true;
+    // 정상 로드되면 차단 경고를 명시적으로 해제 (타이머가 먼저 발화했어도 복구)
+    setEmbedBlocked(false);
+  };
 
   const openNewTab = () => {
     window.open(url, "_blank", "noopener,noreferrer");
@@ -90,7 +100,7 @@ export function PlayPhraseModal({
               src={url}
               title={`PlayPhrase: ${phraseEn}`}
               className="w-full h-full"
-              onLoad={() => setLoaded(true)}
+              onLoad={handleIframeLoad}
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
               allow="autoplay; encrypted-media"
               data-testid="iframe-playphrase"

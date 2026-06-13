@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { StudyLog, PeppaEpisode } from "@shared/schema";
@@ -34,16 +34,8 @@ export default function StudyLogPage() {
   const [watchedIds, setWatchedIds] = useState<number[]>([]);
   const [showEpisodePicker, setShowEpisodePicker] = useState<boolean>(false);
 
-  // load existing on date change
-  const lastDate = useState<string>(date)[0];
-  if (date !== lastDate || (existing && listening === 0 && shadowing === 0 && conversation === 0 && existing.listeningMin > 0)) {
-    // reset to existing values when switching date
-  }
-
-  // Sync form when date changes
-  const onDateChange = (d: string) => {
-    setDate(d);
-    const l = logs.find((x) => x.date === d);
+  // 주어진 날짜의 기존 로그로 폼 필드를 채운다 (없으면 초기값).
+  const fillFormFromLog = (l: StudyLog | undefined) => {
     if (l) {
       setListening(l.listeningMin);
       setShadowing(l.shadowingMin);
@@ -72,6 +64,17 @@ export default function StudyLogPage() {
     }
   };
 
+  // 날짜 변경 또는 logs(서버 데이터) 도착 시 폼을 동기화한다.
+  // 렌더 중 setState를 피하기 위해 useEffect로 처리.
+  useEffect(() => {
+    fillFormFromLog(logs.find((x) => x.date === date));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, logs]);
+
+  const onDateChange = (d: string) => {
+    setDate(d);
+  };
+
   const toggleEpisode = (epId: number) => {
     setWatchedIds((prev) => {
       const next = prev.includes(epId) ? prev.filter((x) => x !== epId) : [...prev, epId];
@@ -80,13 +83,6 @@ export default function StudyLogPage() {
       return next;
     });
   };
-
-  // Initialize once
-  const [initialized, setInitialized] = useState(false);
-  if (!initialized && logs.length >= 0) {
-    setInitialized(true);
-    onDateChange(date);
-  }
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -160,6 +156,7 @@ export default function StudyLogPage() {
                 data-testid="input-date"
                 type="date"
                 value={date}
+                max={todayISO()}
                 onChange={(e) => onDateChange(e.target.value)}
                 className="h-9 w-44"
               />
